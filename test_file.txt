@@ -1,0 +1,7 @@
+n, implies(big-bang,occurred, microwave-radiation,present).
+m, some(microwave-radiation,explosion-residue)
+p, implies(light-from-galaxies,red-shifted, universe,expanding)
+q, not(explains(big-bang,galaxy-formation)
+r,implies(4-fundamental-forces,originally-single-force,thermal-dynamics-law,questionable)
+n,implies(radiation, lessthan 100-centimeters,radiation,microwave).
+n,discovered(WMAP,999-millimeter-radiation)

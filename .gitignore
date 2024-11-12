@@ -1,0 +1,76 @@
+# Ignore build directories
+/build/
+/out/
+/bin/
+/lib/
+/CMakeFiles/
+/CMakeCache.txt
+/cmake_install.cmake
+/Makefile
+
+# Ignore VS Code configuration files
+.vscode/
+.vscode/tasks.json
+.vscode/launch.json
+/.vscode/settings.json
+.vscode/cmake-kits.json
+.vscode/cmake-tools.json
+
+#ignore JetBrains config files
+.idea/
+
+# Ignore CMake generated files
+*.cmake
+CMakeLists.txt.user
+
+# Ignore macOS-specific files
+.DS_Store
+
+# Ignore binary files and other build artifacts
+*.obj
+*.o
+*.exe
+*.out
+*.app
+*.lib
+*.a
+*.so
+*.dll
+*.dylib
+*.pdb
+*.log
+
+# Ignore temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*.bak
+*.~*
+
+# Ignore generated documentation
+/doc/
+/docs/
+/*.html
+*.pdf
+
+# Ignore package output (e.g., CPack)
+CPackConfig.cmake
+CPackSourceConfig.cmake
+Doxyfile
+cmake-build-debug/.ninja_deps
+cmake-build-debug/.ninja_log
+cmake-build-debug/build.ninja
+cmake-build-debug/CMakeCache.txt
+cmake-build-debug/DartConfiguration.tcl
+cmake-build-debug/tests
+cmake-build-debug/CMakeFiles/clion-Debug-log.txt
+cmake-build-debug/CMakeFiles/clion-environment.txt
+cmake-build-debug/CMakeFiles/cmake.check_cache
+cmake-build-debug/CMakeFiles/CMakeConfigureLog.yaml
+cmake-build-debug/CMakeFiles/rules.ninja
+cmake-build-debug/CMakeFiles/TargetDirectories.txt
+cmake-build-debug/CMakeFiles/3.29.6/CMakeDetermineCompilerABI_C.bin
+cmake-build-debug/CMakeFiles/3.29.6/CMakeDetermineCompilerABI_CXX.bin
+cmake-build-debug/CMakeFiles/3.29.6/CompilerIdC/CMakeCCompilerId.c
+cmake-build-debug/CMakeFiles/3.29.6/CompilerIdCXX/CMakeCXXCompilerId.cpp
