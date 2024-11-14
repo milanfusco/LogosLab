@@ -15,7 +15,7 @@ Ratiocinator::~Ratiocinator() {
 }
 
 // Parse the facts file and initialize propositions or expressions
-void Ratiocinator::parseFactsFile(const std::string& filename) {
+void Ratiocinator::parseAssumptionsFile(const std::string& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: Could not open file " << filename << std::endl;
@@ -24,7 +24,7 @@ void Ratiocinator::parseFactsFile(const std::string& filename) {
 
     std::string line;
     // Updated regex pattern to match lines like "prefix, relation(arg1, arg2, arg3, arg4)"
-    std::regex linePattern(R"(^\s*(\w+)\s*,\s*(\w+)\s*\(\s*([^)]+?)\s*\)\s*$)");
+    std::regex linePattern(R"(^\s*(\w+)\s*,\s*(\w+)\s*\(\s*([-\w\s\d,]+?)\s*\)\s*$)");
     /* Explanation of the regex pattern:
     R"( ... )" is a raw string literal that allows us to write the regex pattern without escaping backslashes.
     ^            : Assert position at the start of the line.
@@ -52,69 +52,66 @@ void Ratiocinator::parseFactsFile(const std::string& filename) {
     //   match[3] = "big-bang, occurred, microwave-radiation, present" (arguments as a single string)
     std::smatch match;
 
-    while (std::getline(file, line)) {
-        // Match the line against the regex pattern
+     while (std::getline(file, line)) {
         if (std::regex_match(line, match, linePattern)) {
             std::string prefix = match[1];
             std::string relation = match[2];
             std::string arguments = match[3];
 
-            // Split arguments by commas
+            // Split arguments
             std::istringstream argsStream(arguments);
             std::vector<std::string> parts;
             std::string part;
             while (std::getline(argsStream, part, ',')) {
-                // Trim whitespace from each argument
                 part.erase(0, part.find_first_not_of(" \t"));
                 part.erase(part.find_last_not_of(" \t") + 1);
                 parts.push_back(part);
             }
 
-            // Process based on relation type and initialize all fields in Proposition
+            // Process each relation type
+            Proposition proposition;
+            proposition.setPrefix(prefix);
+
             if (relation == "implies" && parts.size() == 4) {
-                Proposition proposition;
-                proposition.setPrefix(prefix);
                 proposition.setRelation(LogicalOperator::IMPLIES);
                 proposition.setAntecedent(parts[0]);
-                proposition.setAntecedentAssertion(Tripartite::TRUE); // Assumed true for antecedent
                 proposition.setSubject(parts[1]);
                 proposition.setConsequent(parts[2]);
-                proposition.setConsequentAssertion(Tripartite::FALSE); // Default false for consequent
                 proposition.setPredicate(parts[3]);
                 proposition.setPropositionScope(Quantifier::UNIVERSAL_AFFIRMATIVE);
-
                 propositions[parts[2]] = proposition;
 
             } else if (relation == "some" && parts.size() == 2) {
-                Proposition proposition;
-                proposition.setPrefix(prefix);
-                proposition.setRelation(LogicalOperator::NONE); // No logical operator for "some"
+                proposition.setRelation(LogicalOperator::NONE);
                 proposition.setSubject(parts[0]);
                 proposition.setPredicate(parts[1]);
-                proposition.setTruthValue(Tripartite::TRUE); // "some" implies existence
+                proposition.setTruthValue(Tripartite::TRUE);
                 proposition.setPropositionScope(Quantifier::PARTICULAR_AFFIRMATIVE);
-
                 propositions[parts[0]] = proposition;
 
             } else if (relation == "not" && parts.size() == 1) {
-                Proposition proposition;
-                proposition.setPrefix(prefix);
                 proposition.setRelation(LogicalOperator::NOT);
                 proposition.setSubject(parts[0]);
-                proposition.setTruthValue(Tripartite::FALSE); // "not" implies false
+                proposition.setTruthValue(Tripartite::FALSE);
                 proposition.setPropositionScope(Quantifier::UNIVERSAL_NEGATIVE);
+                propositions[parts[0]] = proposition;
 
+            } else if (relation == "discovered" && parts.size() == 2) {
+                proposition.setRelation(LogicalOperator::NONE);
+                proposition.setSubject(parts[0]);
+                proposition.setPredicate(parts[1]);
                 propositions[parts[0]] = proposition;
             }
         } else {
-            std::cerr << "Error parsing line: " << line << std::endl;
+            std::cerr << "Error parsing line: " << line 
+                      << " (check for unbalanced parentheses or incorrect format)" << std::endl;
         }
     }
     file.close();
 }
 
 // Parse the arguments file and store expressions
-void Ratiocinator::parseArgumentsFile(const std::string& filename) {
+void Ratiocinator::parseFactsFile(const std::string& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) {
         std::cerr << "Error: Could not open file " << filename << std::endl;
@@ -123,47 +120,44 @@ void Ratiocinator::parseArgumentsFile(const std::string& filename) {
 
     std::string line;
     while (std::getline(file, line)) {
-        Expression expr;
-
-        // Tokenize the line and construct operands and operators
         std::istringstream lineStream(line);
         std::string token;
+        bool negate = false;
+
+        // Handle each token and determine the operation or assignment
         while (lineStream >> token) {
-            if (token == "^") {
-                expr.addOperator(LogicalOperator::AND);
-            } else if (token == "V") {
-                expr.addOperator(LogicalOperator::OR);
-            } else if (token == "->") {
-                expr.addOperator(LogicalOperator::IMPLIES);
+            if (token == "!") {
+                negate = true;
+            } else if (token == "&&" || token == "||" || token == "=") {
+                // Logical operators or assignment operators; handled below
             } else {
-                // Assume token is an operand
-                Proposition prop;
-                prop.setPrefix(token);
-                prop.setTruthValue(propositions[token].getTruthValue());
-                expr.addOperand(prop);
+                // Assuming token is a proposition identifier
+                if (negate) {
+                    propositions[token].setTruthValue(Tripartite::FALSE);
+                    negate = false;
+                } else {
+                    propositions[token].setTruthValue(Tripartite::TRUE);
+                }
             }
         }
-        expressions.push_back(expr);
     }
     file.close();
 }
 
+
 void Ratiocinator::deduceAll() {
     bool changesMade;
-    do {
+    do { // until no changes are made
         changesMade = false;
         for (auto& expr : expressions) {
-            // Evaluate the expression and get the result
             Tripartite resultValue = expr.evaluate();
-
-            // Get the target subject from the expression
             const std::string& subject = expr.getPrefix();
 
-            // Find the current truth value and quantifier for this proposition
+            // Update the truth value in propositions if different
             Tripartite currentValue = propositions[subject].getTruthValue();
             Quantifier scope = propositions[subject].getPropositionScope();
-            
-            // Apply the inference rules based on the scope of the proposition
+
+            // Apply specific inference rules based on the quantifier
             switch (scope) {
                 case Quantifier::UNIVERSAL_AFFIRMATIVE:
                     if (currentValue != resultValue && resultValue == Tripartite::TRUE) {
@@ -198,7 +192,7 @@ void Ratiocinator::deduceAll() {
                     break;
             }
         }
-    } while (changesMade);  // Repeat until no changes are made
+    } while (changesMade);
 }
 
 // Output the truth values of all propositions

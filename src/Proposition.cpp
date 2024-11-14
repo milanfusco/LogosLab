@@ -174,10 +174,14 @@ Proposition Proposition::operator!() const {
   return result;
 }
 
-Tripartite Proposition::implies(const Proposition& other) const {
-  return ::implies(truth_value, other.truth_value);
+// IMPLIES operator
+Proposition Proposition::implies(const Proposition& other) const {
+  Proposition result;
+  result.setTruthValue(::implies(truth_value, other.truth_value));
+  return result;
 }
 
+// Assignment operator
 Proposition& Proposition::operator=(const Proposition& other) {
   if (this != &other) {
     prefix = other.prefix;
@@ -194,6 +198,7 @@ Proposition& Proposition::operator=(const Proposition& other) {
   return *this;
 }
 
+// Output stream operator
 std::ostream& operator<<(std::ostream& out, const Proposition& prop) {
   out << "Proposition: [" << prop.prefix << "] Truth: "
       << (prop.truth_value == Tripartite::TRUE    ? "True"

@@ -22,8 +22,8 @@ public:
 
 
     // Load expressions from facts and arguments files
+    void parseAssumptionsFile(const std::string& filename);
     void parseFactsFile(const std::string& filename);
-    void parseArgumentsFile(const std::string& filename);
 
     // Add an expression to the list
     void addExpression(const Expression& expr);

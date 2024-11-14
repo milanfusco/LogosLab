@@ -137,7 +137,7 @@ class Proposition {
 
   Proposition operator!() const;  ///> Logical NOT operator
 
-  Tripartite implies(
+  Proposition implies(
       const Proposition& other) const;  ///> Logical IMPLIES operator
 
   Proposition& operator=(const Proposition& other);  ///> Assignment operator
