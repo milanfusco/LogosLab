@@ -5,8 +5,10 @@ project(LogosLab VERSION 0.1.0)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-# Set the build type to Debug
-set(DCMAKE_BUILD_TYPE=Debug)
+# Set the build type to Debug (if not specified)
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Debug)
+endif()
 
 include(CTest)
 enable_testing()
@@ -39,6 +41,7 @@ target_link_libraries(testExpression LogosLabLib)
 # Create the test executable for Ratiocinator and link to the core library
 add_executable(testRatiocinator ${CMAKE_SOURCE_DIR}/tests/testRatiocinator.cpp)
 target_link_libraries(testRatiocinator LogosLabLib)
+target_compile_definitions(testRatiocinator PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}")
 
 # REgister the test executables
 add_test(NAME testProposition COMMAND testProposition)
