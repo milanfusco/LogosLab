@@ -75,25 +75,6 @@ Tripartite Expression::performDeduction(const Proposition& left,
   }
 }
 
-// Helper function to evaluate the expression
-Tripartite Expression::evaluateTopOfStack(std::stack<LogicalOperator>& opStack,
-                                          std::queue<Tripartite>& outputQueue) {
-  if (outputQueue.size() < 2) {
-    throw std::runtime_error(
-        "Insufficient operands in the queue for evaluation.");
-  }
-
-  LogicalOperator topOp = opStack.top();
-  opStack.pop();
-
-  Tripartite right = outputQueue.back();
-  outputQueue.pop();
-  Tripartite left = outputQueue.back();
-  outputQueue.pop();
-
-  return performDeduction(left, right, topOp);
-}
-
 // Convert infix expression to postfix notation using the Shunting-Yard
 // algorithm
 void Expression::convertToPostfix(std::queue<Tripartite>& postfixQueue,

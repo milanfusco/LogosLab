@@ -24,10 +24,6 @@ class Expression {
                               const Proposition& right,
                               LogicalOperator op);
 
-  // Helper method to evaluate the expression
-  Tripartite evaluateTopOfStack(std::stack<LogicalOperator>& opStack,
-                                std::queue<Tripartite>& outputQueue);
-
   // Helper method to convert the expression to postfix notation using the
   // Shunting-Yard Algorithm
   void convertToPostfix(std::queue<Tripartite>& postfixQueue,
