@@ -16,6 +16,8 @@
 .vscode/cmake-kits.json
 .vscode/cmake-tools.json
 
+.cache/
+
 #ignore JetBrains config files
 .idea/
 
