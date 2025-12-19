@@ -10,9 +10,7 @@
 Ratiocinator::Ratiocinator() {}
 
 // Destructor
-Ratiocinator::~Ratiocinator() {
-    std::cout << "Ratiocinator destructor called." << std::endl;
-}
+Ratiocinator::~Ratiocinator() = default;
 
 // Parse the facts file and initialize propositions or expressions
 void Ratiocinator::parseAssumptionsFile(const std::string& filename) {
@@ -147,17 +145,47 @@ void Ratiocinator::parseFactsFile(const std::string& filename) {
 
 void Ratiocinator::deduceAll() {
     bool changesMade;
-    do { // until no changes are made
+    do {
         changesMade = false;
+        
+        // ============================================================
+        // PHASE 1: Apply inference rules to IMPLIES propositions
+        // ============================================================
+        for (auto& entry : propositions) {
+            Proposition& prop = entry.second;
+            if (prop.getRelation() == LogicalOperator::IMPLIES) {
+                // Get the names of antecedent and consequent
+                const std::string& antecedentName = prop.getAntecedent();
+                const std::string& consequentName = prop.getConsequent();
+                
+                // Look up their actual truth values from the propositions map
+                Tripartite antecedentTruth = propositions[antecedentName].getTruthValue();
+                Tripartite consequentTruth = propositions[consequentName].getTruthValue();
+                
+                // Modus Ponens: P → Q, P is TRUE ⊢ Q is TRUE
+                if (antecedentTruth == Tripartite::TRUE && consequentTruth != Tripartite::TRUE) {
+                    propositions[consequentName].setTruthValue(Tripartite::TRUE);
+                    changesMade = true;
+                }
+                
+                // Modus Tollens: P → Q, Q is FALSE ⊢ P is FALSE
+                if (consequentTruth == Tripartite::FALSE && antecedentTruth != Tripartite::FALSE) {
+                    propositions[antecedentName].setTruthValue(Tripartite::FALSE);
+                    changesMade = true;
+                }
+            }
+        }
+        
+        // ============================================================
+        // PHASE 2: Evaluate explicit Expression objects (if any)
+        // ============================================================
         for (auto& expr : expressions) {
             Tripartite resultValue = expr.evaluate();
             const std::string& subject = expr.getPrefix();
 
-            // Update the truth value in propositions if different
             Tripartite currentValue = propositions[subject].getTruthValue();
             Quantifier scope = propositions[subject].getPropositionScope();
 
-            // Apply specific inference rules based on the quantifier
             switch (scope) {
                 case Quantifier::UNIVERSAL_AFFIRMATIVE:
                     if (currentValue != resultValue && resultValue == Tripartite::TRUE) {
@@ -188,7 +216,6 @@ void Ratiocinator::deduceAll() {
                     break;
 
                 default:
-                    std::cerr << "Error: Invalid quantifier for proposition " << subject << std::endl;
                     break;
             }
         }
@@ -196,7 +223,10 @@ void Ratiocinator::deduceAll() {
 }
 
 // Output the truth values of all propositions
-void Ratiocinator::outputTruthValues() const {
+std::string Ratiocinator::outputTruthValues() const {
+    std::string output;
+    std::string truthValueStr;
+
     for (const auto& entry : propositions) {
         const auto& name = entry.first;
         const auto& prop = entry.second;
@@ -204,31 +234,51 @@ void Ratiocinator::outputTruthValues() const {
         switch (prop.getTruthValue()) {
             case Tripartite::TRUE:
                 std::cout << "True";
+                truthValueStr = "True";
                 break;
             case Tripartite::FALSE:
                 std::cout << "False";
+                truthValueStr = "False";
+
                 break;
             case Tripartite::UNKNOWN:
                 std::cout << "Unknown";
+                truthValueStr = "Unknown";
                 break;
         }
+       
+        output += name + ": " + truthValueStr + "\n";
+        
         std::cout << std::endl;
     }
+    return output;
 }
 
-// Apply Modus Ponens: If the antecedent is true, set the truth of the consequent
-bool Ratiocinator::applyModusPonens(Proposition& proposition) {
-    if (proposition.getAntecedentAssertion() == Tripartite::TRUE) {
-        propositions[proposition.getConsequent()].setTruthValue(Tripartite::TRUE);
+// Apply Modus Ponens: P → Q, P is TRUE ⊢ Q is TRUE
+// Looks up the antecedent's truth value from propositions map
+bool Ratiocinator::applyModusPonens(Proposition& implication) {
+    const std::string& antecedentName = implication.getAntecedent();
+    const std::string& consequentName = implication.getConsequent();
+    
+    Tripartite antecedentTruth = propositions[antecedentName].getTruthValue();
+    
+    if (antecedentTruth == Tripartite::TRUE) {
+        propositions[consequentName].setTruthValue(Tripartite::TRUE);
         return true;
     }
     return false;
 }
 
-// Apply Modus Tollens: If the consequent is false, set the antecedent to false
-bool Ratiocinator::applyModusTollens(Proposition& proposition) {
-    if (proposition.getConsequentAssertion() == Tripartite::FALSE) {
-        propositions[proposition.getAntecedent()].setTruthValue(Tripartite::FALSE);
+// Apply Modus Tollens: P → Q, Q is FALSE ⊢ P is FALSE
+// Looks up the consequent's truth value from propositions map
+bool Ratiocinator::applyModusTollens(Proposition& implication) {
+    const std::string& antecedentName = implication.getAntecedent();
+    const std::string& consequentName = implication.getConsequent();
+    
+    Tripartite consequentTruth = propositions[consequentName].getTruthValue();
+    
+    if (consequentTruth == Tripartite::FALSE) {
+        propositions[antecedentName].setTruthValue(Tripartite::FALSE);
         return true;
     }
     return false;

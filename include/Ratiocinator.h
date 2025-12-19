@@ -32,7 +32,7 @@ public:
     void deduceAll();
 
     // Output the final truth values of each proposition
-    void outputTruthValues() const;
+    std::string outputTruthValues() const;
 
 
 };
