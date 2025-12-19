@@ -15,15 +15,6 @@ enum class LogicalOperator { NONE, AND, OR, NOT, IMPLIES, EQUIVALENT };
 enum class Tripartite { TRUE = 0, FALSE = 1, UNKNOWN = -1 };
 
 /**
- * @overload operator==
- * @brief Equality operator for Tripartite values.
- * @param left The left Tripartite value
- * @param right The right Tripartite value
- * @return True if the values are equal, false otherwise
- */
-bool operator==(Tripartite left, Tripartite right);
-
-/**
  * @overload operator&&
  * @brief Logical AND operator for Tripartite values.
  * @param left The left Tripartite value

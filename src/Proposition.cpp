@@ -3,11 +3,6 @@
 
 //***  Tripartite Operators ***//
 
-// Equality operator for Tripartite
-bool operator==(Tripartite left, Tripartite right) {
-  return static_cast<int>(left) == static_cast<int>(right);
-}
-
 // Logical AND operator for Tripartite
 Tripartite operator&&(Tripartite left, Tripartite right) {
   if (left == Tripartite::FALSE || right == Tripartite::FALSE)
