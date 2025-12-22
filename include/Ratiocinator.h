@@ -2,12 +2,14 @@
 #define RATIOCINATOR_H
 
 #include "Expression.h"
+#include "Parser.h"
 #include <vector>
 #include <unordered_map>
 #include <string>
 
 class Ratiocinator {
 private:
+    Parser parser_;                                              // Parser for input files
     std::unordered_map<std::string, Proposition> propositions_; // Stores all propositions by name
     std::vector<Expression> expressions_;                       // Collection of expressions to evaluate
 
