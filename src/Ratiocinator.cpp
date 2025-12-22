@@ -204,39 +204,15 @@ void Ratiocinator::deduceAll() {
         // PHASE 1: Apply inference rules to IMPLIES propositions
         // ============================================================
         for (auto& entry : propositions_) {
-            Proposition& prop = entry.second;
+            const Proposition& prop = entry.second;
             if (prop.getRelation() == LogicalOperator::IMPLIES) {
-                // Get the names of antecedent and consequent
-                const std::string& antecedentName = prop.getAntecedent();
-                const std::string& consequentName = prop.getConsequent();
-                
-                // Safe lookup of antecedent and consequent propositions
-                Proposition* antecedentProp = findProposition(antecedentName);
-                Proposition* consequentProp = findProposition(consequentName);
-                
-                // Get truth values (UNKNOWN if proposition doesn't exist)
-                Tripartite antecedentTruth = antecedentProp ? antecedentProp->getTruthValue() : Tripartite::UNKNOWN;
-                Tripartite consequentTruth = consequentProp ? consequentProp->getTruthValue() : Tripartite::UNKNOWN;
-                
-                // Modus Ponens: P → Q, P is TRUE ⊢ Q is TRUE
-                if (antecedentTruth == Tripartite::TRUE && consequentTruth != Tripartite::TRUE) {
-                    if (consequentProp) {
-                        consequentProp->setTruthValue(Tripartite::TRUE);
-                    } else {
-                        // Create proposition if it doesn't exist
-                        propositions_[consequentName].setTruthValue(Tripartite::TRUE);
-                    }
+                // Apply Modus Ponens: P → Q, P is TRUE ⊢ Q is TRUE
+                if (applyModusPonens(prop)) {
                     changesMade = true;
                 }
                 
-                // Modus Tollens: P → Q, Q is FALSE ⊢ P is FALSE
-                if (consequentTruth == Tripartite::FALSE && antecedentTruth != Tripartite::FALSE) {
-                    if (antecedentProp) {
-                        antecedentProp->setTruthValue(Tripartite::FALSE);
-                    } else {
-                        // Create proposition if it doesn't exist
-                        propositions_[antecedentName].setTruthValue(Tripartite::FALSE);
-                    }
+                // Apply Modus Tollens: P → Q, Q is FALSE ⊢ P is FALSE
+                if (applyModusTollens(prop)) {
                     changesMade = true;
                 }
             }
@@ -328,18 +304,20 @@ std::string Ratiocinator::outputTruthValues() const {
 }
 
 // Apply Modus Ponens: P → Q, P is TRUE ⊢ Q is TRUE
-// Looks up the antecedent's truth value from propositions map
+// Returns true if a change was made (consequent wasn't already TRUE)
 bool Ratiocinator::applyModusPonens(const Proposition& implication) {
     const std::string& antecedentName = implication.getAntecedent();
     const std::string& consequentName = implication.getConsequent();
     
-    // Safe lookup of antecedent
+    // Safe lookup of antecedent and consequent
     const Proposition* antecedentProp = findProposition(antecedentName);
-    Tripartite antecedentTruth = antecedentProp ? antecedentProp->getTruthValue() : Tripartite::UNKNOWN;
+    Proposition* consequentProp = findProposition(consequentName);
     
-    if (antecedentTruth == Tripartite::TRUE) {
-        // Set consequent to TRUE (creates if doesn't exist)
-        Proposition* consequentProp = findProposition(consequentName);
+    Tripartite antecedentTruth = antecedentProp ? antecedentProp->getTruthValue() : Tripartite::UNKNOWN;
+    Tripartite consequentTruth = consequentProp ? consequentProp->getTruthValue() : Tripartite::UNKNOWN;
+    
+    // Only apply if antecedent is TRUE and consequent is not already TRUE
+    if (antecedentTruth == Tripartite::TRUE && consequentTruth != Tripartite::TRUE) {
         if (consequentProp) {
             consequentProp->setTruthValue(Tripartite::TRUE);
         } else {
@@ -351,18 +329,20 @@ bool Ratiocinator::applyModusPonens(const Proposition& implication) {
 }
 
 // Apply Modus Tollens: P → Q, Q is FALSE ⊢ P is FALSE
-// Looks up the consequent's truth value from propositions map
+// Returns true if a change was made (antecedent wasn't already FALSE)
 bool Ratiocinator::applyModusTollens(const Proposition& implication) {
     const std::string& antecedentName = implication.getAntecedent();
     const std::string& consequentName = implication.getConsequent();
     
-    // Safe lookup of consequent
+    // Safe lookup of antecedent and consequent
+    Proposition* antecedentProp = findProposition(antecedentName);
     const Proposition* consequentProp = findProposition(consequentName);
+    
+    Tripartite antecedentTruth = antecedentProp ? antecedentProp->getTruthValue() : Tripartite::UNKNOWN;
     Tripartite consequentTruth = consequentProp ? consequentProp->getTruthValue() : Tripartite::UNKNOWN;
     
-    if (consequentTruth == Tripartite::FALSE) {
-        // Set antecedent to FALSE (creates if doesn't exist)
-        Proposition* antecedentProp = findProposition(antecedentName);
+    // Only apply if consequent is FALSE and antecedent is not already FALSE
+    if (consequentTruth == Tripartite::FALSE && antecedentTruth != Tripartite::FALSE) {
         if (antecedentProp) {
             antecedentProp->setTruthValue(Tripartite::FALSE);
         } else {
