@@ -57,7 +57,10 @@ Proposition::Proposition()
       truth_value(Tripartite::UNKNOWN),
       proposition_scope(Quantifier::NONE) {}
 
-Proposition::Proposition(Tripartite truth_value) : truth_value(truth_value) {}
+Proposition::Proposition(Tripartite truth_value)
+    : Proposition() {
+  this->truth_value = truth_value;
+}
 
 Proposition::Proposition(const std::string& prefix, Tripartite truth_value)
     : prefix(prefix),
