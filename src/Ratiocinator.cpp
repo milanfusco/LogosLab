@@ -12,6 +12,17 @@ Ratiocinator::Ratiocinator() {}
 // Destructor
 Ratiocinator::~Ratiocinator() = default;
 
+// Private helper: safe internal lookup (returns nullptr if not found)
+Proposition* Ratiocinator::findProposition(const std::string& name) {
+    auto it = propositions_.find(name);
+    return (it != propositions_.end()) ? &it->second : nullptr;
+}
+
+const Proposition* Ratiocinator::findProposition(const std::string& name) const {
+    auto it = propositions_.find(name);
+    return (it != propositions_.end()) ? &it->second : nullptr;
+}
+
 // Proposition accessors
 void Ratiocinator::setProposition(const std::string& name, const Proposition& prop) {
     propositions_[name] = prop;
@@ -199,19 +210,33 @@ void Ratiocinator::deduceAll() {
                 const std::string& antecedentName = prop.getAntecedent();
                 const std::string& consequentName = prop.getConsequent();
                 
-                // Look up their actual truth values from the propositions map
-                Tripartite antecedentTruth = propositions_[antecedentName].getTruthValue();
-                Tripartite consequentTruth = propositions_[consequentName].getTruthValue();
+                // Safe lookup of antecedent and consequent propositions
+                Proposition* antecedentProp = findProposition(antecedentName);
+                Proposition* consequentProp = findProposition(consequentName);
+                
+                // Get truth values (UNKNOWN if proposition doesn't exist)
+                Tripartite antecedentTruth = antecedentProp ? antecedentProp->getTruthValue() : Tripartite::UNKNOWN;
+                Tripartite consequentTruth = consequentProp ? consequentProp->getTruthValue() : Tripartite::UNKNOWN;
                 
                 // Modus Ponens: P → Q, P is TRUE ⊢ Q is TRUE
                 if (antecedentTruth == Tripartite::TRUE && consequentTruth != Tripartite::TRUE) {
-                    propositions_[consequentName].setTruthValue(Tripartite::TRUE);
+                    if (consequentProp) {
+                        consequentProp->setTruthValue(Tripartite::TRUE);
+                    } else {
+                        // Create proposition if it doesn't exist
+                        propositions_[consequentName].setTruthValue(Tripartite::TRUE);
+                    }
                     changesMade = true;
                 }
                 
                 // Modus Tollens: P → Q, Q is FALSE ⊢ P is FALSE
                 if (consequentTruth == Tripartite::FALSE && antecedentTruth != Tripartite::FALSE) {
-                    propositions_[antecedentName].setTruthValue(Tripartite::FALSE);
+                    if (antecedentProp) {
+                        antecedentProp->setTruthValue(Tripartite::FALSE);
+                    } else {
+                        // Create proposition if it doesn't exist
+                        propositions_[antecedentName].setTruthValue(Tripartite::FALSE);
+                    }
                     changesMade = true;
                 }
             }
@@ -224,34 +249,41 @@ void Ratiocinator::deduceAll() {
             Tripartite resultValue = expr.evaluate();
             const std::string& subject = expr.getPrefix();
 
-            Tripartite currentValue = propositions_[subject].getTruthValue();
-            Quantifier scope = propositions_[subject].getPropositionScope();
+            // Safe lookup of subject proposition
+            Proposition* subjectProp = findProposition(subject);
+            if (!subjectProp) {
+                // Skip if subject proposition doesn't exist
+                continue;
+            }
+
+            Tripartite currentValue = subjectProp->getTruthValue();
+            Quantifier scope = subjectProp->getPropositionScope();
 
             switch (scope) {
                 case Quantifier::UNIVERSAL_AFFIRMATIVE:
                     if (currentValue != resultValue && resultValue == Tripartite::TRUE) {
-                        propositions_[subject].setTruthValue(Tripartite::TRUE);
+                        subjectProp->setTruthValue(Tripartite::TRUE);
                         changesMade = true;
                     }
                     break;
 
                 case Quantifier::UNIVERSAL_NEGATIVE:
                     if (currentValue != resultValue && resultValue == Tripartite::FALSE) {
-                        propositions_[subject].setTruthValue(Tripartite::FALSE);
+                        subjectProp->setTruthValue(Tripartite::FALSE);
                         changesMade = true;
                     }
                     break;
 
                 case Quantifier::PARTICULAR_AFFIRMATIVE:
                     if (resultValue == Tripartite::TRUE) {
-                        propositions_[subject].setTruthValue(Tripartite::TRUE);
+                        subjectProp->setTruthValue(Tripartite::TRUE);
                         changesMade = true;
                     }
                     break;
 
                 case Quantifier::PARTICULAR_NEGATIVE:
                     if (resultValue == Tripartite::FALSE && currentValue != Tripartite::TRUE) {
-                        propositions_[subject].setTruthValue(Tripartite::FALSE);
+                        subjectProp->setTruthValue(Tripartite::FALSE);
                         changesMade = true;
                     }
                     break;
@@ -301,10 +333,18 @@ bool Ratiocinator::applyModusPonens(const Proposition& implication) {
     const std::string& antecedentName = implication.getAntecedent();
     const std::string& consequentName = implication.getConsequent();
     
-    Tripartite antecedentTruth = propositions_[antecedentName].getTruthValue();
+    // Safe lookup of antecedent
+    const Proposition* antecedentProp = findProposition(antecedentName);
+    Tripartite antecedentTruth = antecedentProp ? antecedentProp->getTruthValue() : Tripartite::UNKNOWN;
     
     if (antecedentTruth == Tripartite::TRUE) {
-        propositions_[consequentName].setTruthValue(Tripartite::TRUE);
+        // Set consequent to TRUE (creates if doesn't exist)
+        Proposition* consequentProp = findProposition(consequentName);
+        if (consequentProp) {
+            consequentProp->setTruthValue(Tripartite::TRUE);
+        } else {
+            propositions_[consequentName].setTruthValue(Tripartite::TRUE);
+        }
         return true;
     }
     return false;
@@ -316,10 +356,18 @@ bool Ratiocinator::applyModusTollens(const Proposition& implication) {
     const std::string& antecedentName = implication.getAntecedent();
     const std::string& consequentName = implication.getConsequent();
     
-    Tripartite consequentTruth = propositions_[consequentName].getTruthValue();
+    // Safe lookup of consequent
+    const Proposition* consequentProp = findProposition(consequentName);
+    Tripartite consequentTruth = consequentProp ? consequentProp->getTruthValue() : Tripartite::UNKNOWN;
     
     if (consequentTruth == Tripartite::FALSE) {
-        propositions_[antecedentName].setTruthValue(Tripartite::FALSE);
+        // Set antecedent to FALSE (creates if doesn't exist)
+        Proposition* antecedentProp = findProposition(antecedentName);
+        if (antecedentProp) {
+            antecedentProp->setTruthValue(Tripartite::FALSE);
+        } else {
+            propositions_[antecedentName].setTruthValue(Tripartite::FALSE);
+        }
         return true;
     }
     return false;
