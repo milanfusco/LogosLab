@@ -1,11 +1,12 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include "Ratiocinator.h"
 
 int main(int argc, char* argv[]) {
   if (argc != 3) {
     std::cerr << "Usage: ./LogosLab "
-                "/path/to/<assumptions_file>.txt /path/to/<facts_file>.txt"
+                 "/path/to/<assumptions_file>.txt /path/to/<facts_file>.txt"
               << std::endl;
     return 1;
   }
@@ -26,13 +27,21 @@ int main(int argc, char* argv[]) {
   rationator.parseFactsFile(factsFile);
 
   // Deduce truth values of all propositions based on loaded expressions
-  std::cout << "Deducting truth values based on loaded expressions..."
-            << std::endl;
+  std::cout << "Deducting truth values based on loaded expressions..." << std::endl;
   rationator.deduceAll();
 
-  // Output final truth values for each proposition
-  std::cout << "Final truth values of propositions:" << std::endl;
-  rationator.outputTruthValues();
+  // Open a file stream for the report
+  std::ofstream reportFile("ratiocinator_report.txt");
+  if (!reportFile) {
+    std::cerr << "Error: Could not open report.txt for writing." << std::endl;
+    return 1;
+  }
+
+  // Redirect output to the file
+  reportFile << "Final truth values of propositions:" << std::endl;
+  reportFile << rationator.outputTruthValues();
+
+  std::cout << "Results written to report.txt" << std::endl;
 
   return 0;
 }
