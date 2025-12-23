@@ -4,7 +4,7 @@
 
 // Default constructor
 Expression::Expression()
-    : evaluatedValue(Tripartite::UNKNOWN), isEvaluated(false) {
+    : evaluatedValue(Tripartite::UNKNOWN), isEvaluated(false), useTokenStream(false) {
   initializePrecedence();
 }
 
@@ -12,7 +12,7 @@ Expression::Expression()
 Expression::Expression(const Proposition& left,
                        const Proposition& right,
                        LogicalOperator op)
-    : evaluatedValue(Tripartite::UNKNOWN), isEvaluated(false) {
+    : evaluatedValue(Tripartite::UNKNOWN), isEvaluated(false), useTokenStream(false) {
   operands.push_back(left);
   operands.push_back(right);
   operators.push_back(op);
@@ -34,9 +34,31 @@ void Expression::addOperand(const Proposition& prop) {
   operands.push_back(prop);
 }
 
-// Add a LogicalOperator as an operator
+// Add a LogicalOperator as an operator (legacy API)
 void Expression::addOperator(LogicalOperator op) {
   operators.push_back(op);
+}
+
+// Token-based API: add operand token
+void Expression::addToken(const Proposition& prop) {
+  tokens.push_back(Token(prop));
+  useTokenStream = true;
+}
+
+// Token-based API: add operator token
+void Expression::addToken(LogicalOperator op) {
+  tokens.push_back(Token(op));
+  useTokenStream = true;
+}
+
+// Convenience method to add left parenthesis (uses token API)
+void Expression::openParen() {
+  addToken(LogicalOperator::LPAREN);
+}
+
+// Convenience method to add right parenthesis (uses token API)
+void Expression::closeParen() {
+  addToken(LogicalOperator::RPAREN);
 }
 
 // Initialize precedence for logical operators
@@ -51,6 +73,16 @@ void Expression::initializePrecedence() {
 // Check if an operator is unary
 bool Expression::isUnaryOperator(LogicalOperator op) {
   return op == LogicalOperator::NOT;
+}
+
+// Check if token is left parenthesis
+bool Expression::isLeftParen(LogicalOperator op) {
+  return op == LogicalOperator::LPAREN;
+}
+
+// Check if token is right parenthesis
+bool Expression::isRightParen(LogicalOperator op) {
+  return op == LogicalOperator::RPAREN;
 }
 
 // Apply a unary operator to a single value
@@ -83,41 +115,90 @@ Tripartite Expression::applyBinaryOperator(Tripartite left, Tripartite right, Lo
 }
 
 // Convert infix expression to postfix notation using the Shunting-Yard
-// algorithm. Handles both unary (NOT) and binary operators.
+// algorithm. Handles unary (NOT), binary operators, and parentheses.
 //
-// For unary operators like NOT:
-//   - NOT is right-associative and applies to the operand immediately after it
-//   - Expression "NOT A AND B" means "(NOT A) AND B"
-//   - The NOT operator is pushed onto stack, then when the operand is processed,
-//     we immediately pop and apply NOT since it has highest precedence
+// The key insight is that we need to track when to consume operands.
+// Operands are consumed:
+//   1. Before a binary operator (as its left operand)
+//   2. After a unary operator (as its single operand)
+//   3. Before a closing parenthesis (the last operand in the group)
+//   4. At the end of the expression
+//
+// We track: needsOperand - true when we're expecting an operand next
 //
 void Expression::convertToPostfix(std::queue<Tripartite>& postfixQueue,
                                   std::queue<LogicalOperator>& opQueue) {
   std::stack<LogicalOperator> opStack;
   size_t operandIndex = 0;
+  bool needsOperand = true;  // We start expecting an operand (or unary op or LPAREN)
+  
+  // Helper to push an operand and apply pending unary operators
+  auto pushOperand = [&]() {
+    if (operandIndex < operands.size()) {
+      postfixQueue.push(operands[operandIndex].getTruthValue());
+      operandIndex++;
+      
+      // After pushing operand, apply any pending unary operators
+      // Stop at LPAREN since unary ops inside parens stay with their operand
+      while (!opStack.empty() && isUnaryOperator(opStack.top())) {
+        opQueue.push(opStack.top());
+        opStack.pop();
+      }
+      needsOperand = false;  // We just consumed an operand
+    }
+  };
   
   for (size_t i = 0; i < operators.size(); ++i) {
     LogicalOperator currentOp = operators[i];
     
-    if (isUnaryOperator(currentOp)) {
-      // Unary operator (NOT): push to stack, it will be applied to the next operand
-      // Right-associative: don't pop other NOTs yet
+    if (isLeftParen(currentOp)) {
+      // Left parenthesis: push onto stack, expect operand inside
       opStack.push(currentOp);
-    } else {
-      // Binary operator: first push the left operand if we haven't yet
-      if (operandIndex < operands.size()) {
-        postfixQueue.push(operands[operandIndex].getTruthValue());
-        operandIndex++;
-        
-        // After pushing operand, apply any pending unary operators
-        while (!opStack.empty() && isUnaryOperator(opStack.top())) {
+      needsOperand = true;
+      
+    } else if (isRightParen(currentOp)) {
+      // Right parenthesis: consume the last operand in the group if needed
+      if (needsOperand) {
+        pushOperand();
+      }
+      
+      // Pop operators until we find the matching left parenthesis
+      while (!opStack.empty() && !isLeftParen(opStack.top())) {
+        if (!isUnaryOperator(opStack.top())) {
           opQueue.push(opStack.top());
-          opStack.pop();
         }
+        opStack.pop();
+      }
+      
+      // Pop the left parenthesis (don't add to output)
+      if (!opStack.empty() && isLeftParen(opStack.top())) {
+        opStack.pop();
+      }
+      
+      // After closing paren, apply any pending unary operators from before the group
+      while (!opStack.empty() && isUnaryOperator(opStack.top())) {
+        opQueue.push(opStack.top());
+        opStack.pop();
+      }
+      
+      needsOperand = false;  // The parenthesized expression is a complete operand
+      
+    } else if (isUnaryOperator(currentOp)) {
+      // Unary operator (NOT): push to stack, still need an operand after it
+      opStack.push(currentOp);
+      // needsOperand stays true - we need the operand this unary applies to
+      
+    } else {
+      // Binary operator: first consume the left operand if we haven't yet
+      if (needsOperand) {
+        pushOperand();
       }
       
       // Move operators with higher or equal precedence from opStack to opQueue
-      while (!opStack.empty() && !isUnaryOperator(opStack.top()) &&
+      // Stop at LPAREN (it acts as a barrier)
+      while (!opStack.empty() && 
+             !isLeftParen(opStack.top()) && 
+             !isUnaryOperator(opStack.top()) &&
              precedence[currentOp] <= precedence[opStack.top()]) {
         opQueue.push(opStack.top());
         opStack.pop();
@@ -125,10 +206,11 @@ void Expression::convertToPostfix(std::queue<Tripartite>& postfixQueue,
       
       // Push the current binary operator onto the stack
       opStack.push(currentOp);
+      needsOperand = true;  // Now we need the right operand
     }
   }
   
-  // Push remaining operands
+  // Push remaining operands (the final operand)
   while (operandIndex < operands.size()) {
     postfixQueue.push(operands[operandIndex].getTruthValue());
     operandIndex++;
@@ -142,7 +224,10 @@ void Expression::convertToPostfix(std::queue<Tripartite>& postfixQueue,
 
   // Move remaining operators in opStack to opQueue
   while (!opStack.empty()) {
-    opQueue.push(opStack.top());
+    // Skip any unmatched parentheses (shouldn't happen with valid input)
+    if (!isLeftParen(opStack.top()) && !isRightParen(opStack.top())) {
+      opQueue.push(opStack.top());
+    }
     opStack.pop();
   }
 }
@@ -198,23 +283,122 @@ Tripartite Expression::evaluatePostfix(std::queue<Tripartite>& postfixQueue,
   }
 }
 
-// Main evaluate function that combines convertToPostfix() and evaluatePostfix()
+// Evaluate token stream using Shunting-Yard algorithm with parentheses support
+Tripartite Expression::evaluateTokenStream() {
+  std::stack<LogicalOperator> opStack;
+  std::stack<Tripartite> valueStack;
+  
+  // Helper to apply an operator from opStack to values in valueStack
+  auto applyOperator = [&]() {
+    if (opStack.empty()) return;
+    
+    LogicalOperator op = opStack.top();
+    opStack.pop();
+    
+    if (isUnaryOperator(op)) {
+      if (valueStack.empty()) {
+        throw std::runtime_error("Insufficient operands for unary operator");
+      }
+      Tripartite operand = valueStack.top();
+      valueStack.pop();
+      valueStack.push(applyUnaryOperator(operand, op));
+    } else {
+      if (valueStack.size() < 2) {
+        throw std::runtime_error("Insufficient operands for binary operator");
+      }
+      Tripartite right = valueStack.top();
+      valueStack.pop();
+      Tripartite left = valueStack.top();
+      valueStack.pop();
+      valueStack.push(applyBinaryOperator(left, right, op));
+    }
+  };
+  
+  for (const Token& token : tokens) {
+    if (token.isOperand) {
+      // Push operand value onto value stack
+      valueStack.push(token.prop.getTruthValue());
+      
+      // After operand, apply any pending unary operators
+      while (!opStack.empty() && isUnaryOperator(opStack.top())) {
+        applyOperator();
+      }
+      
+    } else if (isLeftParen(token.op)) {
+      // Push left paren onto operator stack
+      opStack.push(token.op);
+      
+    } else if (isRightParen(token.op)) {
+      // Pop and apply operators until we find matching left paren
+      while (!opStack.empty() && !isLeftParen(opStack.top())) {
+        applyOperator();
+      }
+      // Pop the left paren
+      if (!opStack.empty() && isLeftParen(opStack.top())) {
+        opStack.pop();
+      }
+      // After closing paren, apply any pending unary operators
+      while (!opStack.empty() && isUnaryOperator(opStack.top())) {
+        applyOperator();
+      }
+      
+    } else if (isUnaryOperator(token.op)) {
+      // Push unary operator, it will be applied after the next operand
+      opStack.push(token.op);
+      
+    } else {
+      // Binary operator: apply higher-precedence operators first
+      while (!opStack.empty() && 
+             !isLeftParen(opStack.top()) && 
+             !isUnaryOperator(opStack.top()) &&
+             precedence[token.op] <= precedence[opStack.top()]) {
+        applyOperator();
+      }
+      opStack.push(token.op);
+    }
+  }
+  
+  // Apply remaining operators
+  while (!opStack.empty()) {
+    if (!isLeftParen(opStack.top()) && !isRightParen(opStack.top())) {
+      applyOperator();
+    } else {
+      opStack.pop();  // Skip unmatched parens
+    }
+  }
+  
+  if (valueStack.size() == 1) {
+    return valueStack.top();
+  } else if (valueStack.empty()) {
+    return Tripartite::UNKNOWN;
+  } else {
+    throw std::runtime_error("Invalid expression: too many operands");
+  }
+}
+
+// Main evaluate function
 Tripartite Expression::evaluate() {
   if (isEvaluated)
     return evaluatedValue;
 
-  if (operands.empty()) {
-    evaluatedValue = Tripartite::UNKNOWN;
-    isEvaluated = true;
-    return evaluatedValue;
+  if (useTokenStream) {
+    // Use new token-based evaluation
+    if (tokens.empty()) {
+      evaluatedValue = Tripartite::UNKNOWN;
+    } else {
+      evaluatedValue = evaluateTokenStream();
+    }
+  } else {
+    // Use legacy evaluation
+    if (operands.empty()) {
+      evaluatedValue = Tripartite::UNKNOWN;
+    } else {
+      std::queue<Tripartite> postfixQueue;
+      std::queue<LogicalOperator> opQueue;
+      convertToPostfix(postfixQueue, opQueue);
+      evaluatedValue = evaluatePostfix(postfixQueue, opQueue);
+    }
   }
-
-  std::queue<Tripartite> postfixQueue;  // Queue to hold operands
-  std::queue<LogicalOperator> opQueue;  // Queue to hold operators
-
-  convertToPostfix(postfixQueue, opQueue);  // Convert to postfix
-  evaluatedValue =
-      evaluatePostfix(postfixQueue, opQueue);  // Evaluate postfix expression
 
   isEvaluated = true;
   return evaluatedValue;
@@ -234,6 +418,8 @@ const std::string& Expression::getPrefix() const {
 void Expression::reset() {
   operands.clear();
   operators.clear();
+  tokens.clear();
   isEvaluated = false;
   evaluatedValue = Tripartite::UNKNOWN;
+  useTokenStream = false;
 }

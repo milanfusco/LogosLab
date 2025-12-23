@@ -6,8 +6,9 @@
 
 /**
  * Enum class to represent logical operators for propositions.
+ * LPAREN and RPAREN are used for grouping in expressions.
  */
-enum class LogicalOperator { NONE, AND, OR, NOT, IMPLIES, EQUIVALENT };
+enum class LogicalOperator { NONE, AND, OR, NOT, IMPLIES, EQUIVALENT, LPAREN, RPAREN };
 
 /**
  * Enum to represent a three-valued logic: true, false, unknown.
