@@ -2,25 +2,71 @@
 #include "Expression.h"
 #include "Proposition.h"
 #include <iostream>
+#include <sstream>
 
-// Constructor
-Ratiocinator::Ratiocinator() {}
+// ========== Facade Methods (Primary API) ==========
 
-// Destructor
-Ratiocinator::~Ratiocinator() = default;
-
-// Private helper: safe internal lookup (returns nullptr if not found)
-Proposition* Ratiocinator::findProposition(const std::string& name) {
-    auto it = propositions_.find(name);
-    return (it != propositions_.end()) ? &it->second : nullptr;
+void Ratiocinator::loadAssumptions(const std::string& filename) {
+    auto parsed = parser_.parseAssumptionsFile(filename);
+    for (auto& entry : parsed) {
+        propositions_[entry.first] = std::move(entry.second);
+    }
 }
 
-const Proposition* Ratiocinator::findProposition(const std::string& name) const {
-    auto it = propositions_.find(name);
-    return (it != propositions_.end()) ? &it->second : nullptr;
+void Ratiocinator::loadFacts(const std::string& filename) {
+    parser_.parseFactsFile(filename, propositions_);
 }
 
-// Proposition accessors
+void Ratiocinator::deduce() {
+    inferenceEngine_.deduceAll(propositions_, expressions_);
+}
+
+std::string Ratiocinator::formatResults() const {
+    std::ostringstream oss;
+    for (const auto& entry : propositions_) {
+        const auto& name = entry.first;
+        const auto& prop = entry.second;
+        
+        oss << name << ": ";
+        switch (prop.getTruthValue()) {
+            case Tripartite::TRUE:
+                oss << "True";
+                break;
+            case Tripartite::FALSE:
+                oss << "False";
+                break;
+            case Tripartite::UNKNOWN:
+                oss << "Unknown";
+                break;
+        }
+        oss << "\n";
+    }
+    return oss.str();
+}
+
+// ========== Legacy Methods (Backward Compatibility) ==========
+
+void Ratiocinator::parseAssumptionsFile(const std::string& filename) {
+    loadAssumptions(filename);
+}
+
+void Ratiocinator::parseFactsFile(const std::string& filename) {
+    loadFacts(filename);
+}
+
+void Ratiocinator::deduceAll() {
+    deduce();
+}
+
+std::string Ratiocinator::outputTruthValues() const {
+    // Legacy behavior: prints to cout AND returns string
+    std::string output = formatResults();
+    std::cout << output;
+    return output;
+}
+
+// ========== Proposition Accessors ==========
+
 void Ratiocinator::setProposition(const std::string& name, const Proposition& prop) {
     propositions_[name] = prop;
 }
@@ -60,54 +106,3 @@ void Ratiocinator::addExpression(const Expression& expr) {
 const std::vector<Expression>& Ratiocinator::getExpressions() const {
     return expressions_;
 }
-
-// Parse assumptions file and merge results into propositions
-void Ratiocinator::parseAssumptionsFile(const std::string& filename) {
-    auto parsed = parser_.parseAssumptionsFile(filename);
-    for (auto& entry : parsed) {
-        propositions_[entry.first] = std::move(entry.second);
-    }
-}
-
-// Parse facts file and update truth values
-void Ratiocinator::parseFactsFile(const std::string& filename) {
-    parser_.parseFactsFile(filename, propositions_);
-}
-
-
-void Ratiocinator::deduceAll() {
-    inferenceEngine_.deduceAll(propositions_, expressions_);
-}
-
-// Output the truth values of all propositions
-std::string Ratiocinator::outputTruthValues() const {
-    std::string output;
-    std::string truthValueStr;
-
-    for (const auto& entry : propositions_) {
-        const auto& name = entry.first;
-        const auto& prop = entry.second;
-        std::cout << name << ": ";
-        switch (prop.getTruthValue()) {
-            case Tripartite::TRUE:
-                std::cout << "True";
-                truthValueStr = "True";
-                break;
-            case Tripartite::FALSE:
-                std::cout << "False";
-                truthValueStr = "False";
-
-                break;
-            case Tripartite::UNKNOWN:
-                std::cout << "Unknown";
-                truthValueStr = "Unknown";
-                break;
-        }
-       
-        output += name + ": " + truthValueStr + "\n";
-        
-        std::cout << std::endl;
-    }
-    return output;
-}
-

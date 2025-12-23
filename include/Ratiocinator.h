@@ -10,25 +10,52 @@
 
 /**
  * Ratiocinator - The main reasoning engine facade.
- * Coordinates parsing, inference, and output using Parser and InferenceEngine.
+ * 
+ * Provides a unified interface for logical reasoning by coordinating:
+ * - Parser: Handles file I/O and parsing of assumptions/facts
+ * - InferenceEngine: Applies logical inference rules (Modus Ponens, Modus Tollens)
+ * 
+ * Usage:
+ *   Ratiocinator engine;
+ *   engine.loadAssumptions("assumptions.txt");
+ *   engine.loadFacts("facts.txt");
+ *   engine.deduce();
+ *   std::string results = engine.formatResults();
  */
 class Ratiocinator {
 private:
-    Parser parser_;                                              // Parser for input files
-    InferenceEngine inferenceEngine_;                            // Inference engine for deduction
-    std::unordered_map<std::string, Proposition> propositions_; // Stores all propositions by name
-    std::vector<Expression> expressions_;                       // Collection of expressions to evaluate
-
-    // Safe internal helper to find proposition (returns nullptr if not found)
-    Proposition* findProposition(const std::string& name);
-    const Proposition* findProposition(const std::string& name) const;
+    Parser parser_;                                              // Handles file parsing
+    InferenceEngine inferenceEngine_;                            // Handles logical deduction
+    std::unordered_map<std::string, Proposition> propositions_; // Knowledge base
+    std::vector<Expression> expressions_;                       // Expressions to evaluate
 
 public:
-    // Constructors and Destructor
-    Ratiocinator();
-    ~Ratiocinator();
+    Ratiocinator() = default;
+    ~Ratiocinator() = default;
 
-    // Proposition accessors
+    // ========== Facade Methods (Primary API) ==========
+    
+    /// Load proposition definitions from an assumptions file
+    void loadAssumptions(const std::string& filename);
+    
+    /// Load truth values from a facts file
+    void loadFacts(const std::string& filename);
+    
+    /// Run the inference engine to deduce all possible truth values
+    void deduce();
+    
+    /// Format all proposition truth values as a string (no side effects)
+    std::string formatResults() const;
+
+    // ========== Legacy Methods (Backward Compatibility) ==========
+    
+    void parseAssumptionsFile(const std::string& filename);
+    void parseFactsFile(const std::string& filename);
+    void deduceAll();
+    std::string outputTruthValues() const;
+
+    // ========== Proposition Accessors ==========
+    
     void setProposition(const std::string& name, const Proposition& prop);
     const Proposition* getProposition(const std::string& name) const;
     Proposition* getProposition(const std::string& name);
@@ -37,19 +64,10 @@ public:
     Tripartite getPropositionTruthValue(const std::string& name) const;
     const std::unordered_map<std::string, Proposition>& getPropositions() const;
 
-    // Expression accessors
+    // ========== Expression Accessors ==========
+    
     void addExpression(const Expression& expr);
     const std::vector<Expression>& getExpressions() const;
-
-    // Load expressions from facts and arguments files
-    void parseAssumptionsFile(const std::string& filename);
-    void parseFactsFile(const std::string& filename);
-
-    // Deduce truth values of all propositions based on expressions
-    void deduceAll();
-
-    // Output the final truth values of each proposition
-    std::string outputTruthValues() const;
 };
 
 #endif // RATIOCINATOR_H
