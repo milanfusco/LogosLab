@@ -3,24 +3,25 @@
 
 #include "Expression.h"
 #include "Parser.h"
+#include "InferenceEngine.h"
 #include <vector>
 #include <unordered_map>
 #include <string>
 
+/**
+ * Ratiocinator - The main reasoning engine facade.
+ * Coordinates parsing, inference, and output using Parser and InferenceEngine.
+ */
 class Ratiocinator {
 private:
     Parser parser_;                                              // Parser for input files
+    InferenceEngine inferenceEngine_;                            // Inference engine for deduction
     std::unordered_map<std::string, Proposition> propositions_; // Stores all propositions by name
     std::vector<Expression> expressions_;                       // Collection of expressions to evaluate
 
     // Safe internal helper to find proposition (returns nullptr if not found)
     Proposition* findProposition(const std::string& name);
     const Proposition* findProposition(const std::string& name) const;
-
-    // Helper methods for specific logical inference rules
-    bool applyModusPonens(const Proposition& proposition);
-    bool applyModusTollens(const Proposition& proposition);
-    // TODO: Add more inference rules here
 
 public:
     // Constructors and Destructor

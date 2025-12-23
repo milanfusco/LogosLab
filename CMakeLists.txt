@@ -21,6 +21,7 @@ set(TARGET_SRC
     ${CMAKE_SOURCE_DIR}/src/Proposition.cpp
     ${CMAKE_SOURCE_DIR}/src/Expression.cpp
     ${CMAKE_SOURCE_DIR}/src/Parser.cpp
+    ${CMAKE_SOURCE_DIR}/src/InferenceEngine.cpp
     ${CMAKE_SOURCE_DIR}/src/Ratiocinator.cpp
 )
 
