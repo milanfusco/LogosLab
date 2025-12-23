@@ -41,64 +41,103 @@ void Expression::addOperator(LogicalOperator op) {
 
 // Initialize precedence for logical operators
 void Expression::initializePrecedence() {
-  precedence[LogicalOperator::NOT] = 3;
+  precedence[LogicalOperator::NOT] = 3;       // Highest precedence (unary)
   precedence[LogicalOperator::AND] = 2;
   precedence[LogicalOperator::OR] = 1;
   precedence[LogicalOperator::IMPLIES] = 0;
   precedence[LogicalOperator::EQUIVALENT] = 0;
 }
 
-// Helper function to perform logical deduction based on an operator
-Tripartite Expression::performDeduction(const Proposition& left,
-                                        const Proposition& right,
-                                        LogicalOperator op) {
+// Check if an operator is unary
+bool Expression::isUnaryOperator(LogicalOperator op) {
+  return op == LogicalOperator::NOT;
+}
 
-  Tripartite leftValue = left.getTruthValue();
-  Tripartite rightValue = right.getTruthValue();
-
+// Apply a unary operator to a single value
+Tripartite Expression::applyUnaryOperator(Tripartite value, LogicalOperator op) {
   switch (op) {
     case LogicalOperator::NOT:
-      return !leftValue;
+      return !value;
+    default:
+      throw std::invalid_argument("Invalid unary operator.");
+  }
+}
+
+// Apply a binary operator to two values
+Tripartite Expression::applyBinaryOperator(Tripartite left, Tripartite right, LogicalOperator op) {
+  switch (op) {
     case LogicalOperator::AND:
-      return leftValue && rightValue;
+      return left && right;
     case LogicalOperator::OR:
-      return leftValue || rightValue;
+      return left || right;
     case LogicalOperator::IMPLIES:
-      return implies(leftValue, rightValue);
+      return implies(left, right);
     case LogicalOperator::EQUIVALENT:
-      return (implies(leftValue, rightValue) == Tripartite::TRUE &&
-              implies(rightValue, leftValue) == Tripartite::TRUE)
+      return (implies(left, right) == Tripartite::TRUE &&
+              implies(right, left) == Tripartite::TRUE)
                  ? Tripartite::TRUE
                  : Tripartite::FALSE;
     default:
-      throw std::invalid_argument("Invalid operator for deduction.");
+      throw std::invalid_argument("Invalid binary operator.");
   }
 }
 
 // Convert infix expression to postfix notation using the Shunting-Yard
-// algorithm
+// algorithm. Handles both unary (NOT) and binary operators.
+//
+// For unary operators like NOT:
+//   - NOT is right-associative and applies to the operand immediately after it
+//   - Expression "NOT A AND B" means "(NOT A) AND B"
+//   - The NOT operator is pushed onto stack, then when the operand is processed,
+//     we immediately pop and apply NOT since it has highest precedence
+//
 void Expression::convertToPostfix(std::queue<Tripartite>& postfixQueue,
                                   std::queue<LogicalOperator>& opQueue) {
   std::stack<LogicalOperator> opStack;
-
-  // Push the first operand directly
-  postfixQueue.push(operands[0].getTruthValue());
-
+  size_t operandIndex = 0;
+  
   for (size_t i = 0; i < operators.size(); ++i) {
     LogicalOperator currentOp = operators[i];
-
-    // Move operators with higher or equal precedence from opStack to opQueue
-    while (!opStack.empty() &&
-           precedence[currentOp] <= precedence[opStack.top()]) {
+    
+    if (isUnaryOperator(currentOp)) {
+      // Unary operator (NOT): push to stack, it will be applied to the next operand
+      // Right-associative: don't pop other NOTs yet
+      opStack.push(currentOp);
+    } else {
+      // Binary operator: first push the left operand if we haven't yet
+      if (operandIndex < operands.size()) {
+        postfixQueue.push(operands[operandIndex].getTruthValue());
+        operandIndex++;
+        
+        // After pushing operand, apply any pending unary operators
+        while (!opStack.empty() && isUnaryOperator(opStack.top())) {
+          opQueue.push(opStack.top());
+          opStack.pop();
+        }
+      }
+      
+      // Move operators with higher or equal precedence from opStack to opQueue
+      while (!opStack.empty() && !isUnaryOperator(opStack.top()) &&
+             precedence[currentOp] <= precedence[opStack.top()]) {
+        opQueue.push(opStack.top());
+        opStack.pop();
+      }
+      
+      // Push the current binary operator onto the stack
+      opStack.push(currentOp);
+    }
+  }
+  
+  // Push remaining operands
+  while (operandIndex < operands.size()) {
+    postfixQueue.push(operands[operandIndex].getTruthValue());
+    operandIndex++;
+    
+    // After pushing operand, apply any pending unary operators
+    while (!opStack.empty() && isUnaryOperator(opStack.top())) {
       opQueue.push(opStack.top());
       opStack.pop();
     }
-
-    // Push the current operator onto the stack
-    opStack.push(currentOp);
-
-    // Push the next operand into postfixQueue
-    postfixQueue.push(operands[i + 1].getTruthValue());
   }
 
   // Move remaining operators in opStack to opQueue
@@ -118,27 +157,36 @@ Tripartite Expression::evaluatePostfix(std::queue<Tripartite>& postfixQueue,
     postfixQueue.pop();
   }
 
-  // Process each operator in opQueue, applying it to the top two elements in
-  // evalStack
+  // Process each operator in opQueue
   while (!opQueue.empty()) {
-    if (evalStack.size() < 2) {
-      throw std::runtime_error(
-          "Insufficient operands in the stack for evaluation.");
-    }
-
-    // Pop the top two operands
-    Tripartite right = evalStack.top();
-    evalStack.pop();
-    Tripartite left = evalStack.top();
-    evalStack.pop();
-
-    // Apply the current operator
     LogicalOperator op = opQueue.front();
     opQueue.pop();
-    Tripartite result = performDeduction(left, right, op);
 
-    // Push the result of the operation back onto the stack
-    evalStack.push(result);
+    if (isUnaryOperator(op)) {
+      // Unary operator: pop one operand
+      if (evalStack.empty()) {
+        throw std::runtime_error(
+            "Insufficient operands in the stack for unary operator.");
+      }
+      Tripartite operand = evalStack.top();
+      evalStack.pop();
+      
+      Tripartite result = applyUnaryOperator(operand, op);
+      evalStack.push(result);
+    } else {
+      // Binary operator: pop two operands
+      if (evalStack.size() < 2) {
+        throw std::runtime_error(
+            "Insufficient operands in the stack for binary operator.");
+      }
+      Tripartite right = evalStack.top();
+      evalStack.pop();
+      Tripartite left = evalStack.top();
+      evalStack.pop();
+      
+      Tripartite result = applyBinaryOperator(left, right, op);
+      evalStack.push(result);
+    }
   }
 
   // The final result should be the only remaining value on the stack

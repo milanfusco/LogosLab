@@ -19,10 +19,14 @@ class Expression {
   // Helper method to initialize operator precedence
   void initializePrecedence();
 
-  // Helper method to perform a logical deduction based on an operator
-  Tripartite performDeduction(const Proposition& left,
-                              const Proposition& right,
-                              LogicalOperator op);
+  // Helper to check if an operator is unary
+  static bool isUnaryOperator(LogicalOperator op);
+
+  // Helper method to perform a unary logical operation
+  static Tripartite applyUnaryOperator(Tripartite value, LogicalOperator op);
+
+  // Helper method to perform a binary logical operation
+  static Tripartite applyBinaryOperator(Tripartite left, Tripartite right, LogicalOperator op);
 
   // Helper method to convert the expression to postfix notation using the
   // Shunting-Yard Algorithm

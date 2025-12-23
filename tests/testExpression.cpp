@@ -106,6 +106,76 @@ void testExpressionReset() {
     std::cout << "testExpressionReset passed.\n";
 }
 
+void testUnaryNotOperator() {
+    // Test unary NOT operator: NOT TRUE = FALSE
+    std::cout << "Testing unary NOT operator\n";
+    
+    // Test 1: Simple NOT TRUE = FALSE
+    {
+        Proposition pTrue("P", Tripartite::TRUE);
+        Expression expr;
+        expr.addOperator(LogicalOperator::NOT);
+        expr.addOperand(pTrue);
+        Tripartite result = expr.evaluate();
+        std::cout << "NOT TRUE = " << static_cast<int>(result) << " (expected FALSE=1)\n";
+        assert(result == Tripartite::FALSE);
+    }
+    
+    // Test 2: NOT FALSE = TRUE
+    {
+        Proposition pFalse("Q", Tripartite::FALSE);
+        Expression expr;
+        expr.addOperator(LogicalOperator::NOT);
+        expr.addOperand(pFalse);
+        Tripartite result = expr.evaluate();
+        std::cout << "NOT FALSE = " << static_cast<int>(result) << " (expected TRUE=0)\n";
+        assert(result == Tripartite::TRUE);
+    }
+    
+    // Test 3: NOT UNKNOWN = UNKNOWN
+    {
+        Proposition pUnknown("R", Tripartite::UNKNOWN);
+        Expression expr;
+        expr.addOperator(LogicalOperator::NOT);
+        expr.addOperand(pUnknown);
+        Tripartite result = expr.evaluate();
+        std::cout << "NOT UNKNOWN = " << static_cast<int>(result) << " (expected UNKNOWN=-1)\n";
+        assert(result == Tripartite::UNKNOWN);
+    }
+    
+    // Test 4: NOT P AND Q (should be (NOT P) AND Q due to precedence)
+    // NOT TRUE AND TRUE = FALSE AND TRUE = FALSE
+    {
+        Proposition pTrue("P", Tripartite::TRUE);
+        Proposition qTrue("Q", Tripartite::TRUE);
+        Expression expr;
+        expr.addOperator(LogicalOperator::NOT);
+        expr.addOperand(pTrue);
+        expr.addOperator(LogicalOperator::AND);
+        expr.addOperand(qTrue);
+        Tripartite result = expr.evaluate();
+        std::cout << "NOT TRUE AND TRUE = " << static_cast<int>(result) << " (expected FALSE=1)\n";
+        assert(result == Tripartite::FALSE);
+    }
+    
+    // Test 5: P AND NOT Q
+    // TRUE AND NOT FALSE = TRUE AND TRUE = TRUE
+    {
+        Proposition pTrue("P", Tripartite::TRUE);
+        Proposition qFalse("Q", Tripartite::FALSE);
+        Expression expr;
+        expr.addOperand(pTrue);
+        expr.addOperator(LogicalOperator::AND);
+        expr.addOperator(LogicalOperator::NOT);
+        expr.addOperand(qFalse);
+        Tripartite result = expr.evaluate();
+        std::cout << "TRUE AND NOT FALSE = " << static_cast<int>(result) << " (expected TRUE=0)\n";
+        assert(result == Tripartite::TRUE);
+    }
+    
+    std::cout << "testUnaryNotOperator passed.\n";
+}
+
 int main() {
     std::cout << "Running tests for Expression class...\n";
     testSimpleExpression();
@@ -113,6 +183,7 @@ int main() {
     testPrefixSetting();
     testOperatorPrecedence();
     testExpressionReset();
+    testUnaryNotOperator();
 
     std::cout << "All tests passed successfully.\n";
     return 0;
