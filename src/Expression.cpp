@@ -2,6 +2,15 @@
 #include <queue>
 #include <stack>
 
+// Named constants for operator precedence
+namespace {
+    constexpr int PRECEDENCE_NOT = 3;        // Highest: unary negation
+    constexpr int PRECEDENCE_AND = 2;        // Conjunction
+    constexpr int PRECEDENCE_OR = 1;         // Disjunction
+    constexpr int PRECEDENCE_IMPLIES = 0;    // Material implication
+    constexpr int PRECEDENCE_EQUIVALENT = 0; // Biconditional
+}
+
 // Default constructor
 Expression::Expression()
     : evaluatedValue(Tripartite::UNKNOWN), isEvaluated(false), useTokenStream(false) {
@@ -17,11 +26,6 @@ Expression::Expression(const Proposition& left,
   operands.push_back(right);
   operators.push_back(op);
   initializePrecedence();
-}
-
-// Destructor
-Expression::~Expression() {
-  reset();
 }
 
 // Set the prefix for the expression
@@ -63,11 +67,11 @@ void Expression::closeParen() {
 
 // Initialize precedence for logical operators
 void Expression::initializePrecedence() {
-  precedence[LogicalOperator::NOT] = 3;       // Highest precedence (unary)
-  precedence[LogicalOperator::AND] = 2;
-  precedence[LogicalOperator::OR] = 1;
-  precedence[LogicalOperator::IMPLIES] = 0;
-  precedence[LogicalOperator::EQUIVALENT] = 0;
+  precedence[LogicalOperator::NOT] = PRECEDENCE_NOT;
+  precedence[LogicalOperator::AND] = PRECEDENCE_AND;
+  precedence[LogicalOperator::OR] = PRECEDENCE_OR;
+  precedence[LogicalOperator::IMPLIES] = PRECEDENCE_IMPLIES;
+  precedence[LogicalOperator::EQUIVALENT] = PRECEDENCE_EQUIVALENT;
 }
 
 // Check if an operator is unary

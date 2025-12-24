@@ -44,25 +44,8 @@ std::string Ratiocinator::formatResults() const {
     return oss.str();
 }
 
-// ========== Legacy Methods (Backward Compatibility) ==========
-
-void Ratiocinator::parseAssumptionsFile(const std::string& filename) {
-    loadAssumptions(filename);
-}
-
-void Ratiocinator::parseFactsFile(const std::string& filename) {
-    loadFacts(filename);
-}
-
-void Ratiocinator::deduceAll() {
-    deduce();
-}
-
-std::string Ratiocinator::outputTruthValues() const {
-    // Legacy behavior: prints to cout AND returns string
-    std::string output = formatResults();
-    std::cout << output;
-    return output;
+void Ratiocinator::printResults() const {
+    std::cout << formatResults();
 }
 
 // ========== Proposition Accessors ==========

@@ -47,12 +47,8 @@ public:
     /// Format all proposition truth values as a string (no side effects)
     std::string formatResults() const;
 
-    // ========== Legacy Methods (Backward Compatibility) ==========
-    
-    void parseAssumptionsFile(const std::string& filename);
-    void parseFactsFile(const std::string& filename);
-    void deduceAll();
-    std::string outputTruthValues() const;
+    /// Print formatted results to stdout
+    void printResults() const;
 
     // ========== Proposition Accessors ==========
     

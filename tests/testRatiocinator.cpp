@@ -11,12 +11,12 @@
 const std::string assumptionsFile = std::string(TEST_DATA_DIR) + "/assumptions_file.txt";
 const std::string factsFile = std::string(TEST_DATA_DIR) + "/facts_file.txt";
 
-// Test: parseAssumptionsFile correctly parses 'implies' relations
+// Test: loadAssumptions correctly parses 'implies' relations
 void testParseImpliesRelation() {
     std::cout << "Running testParseImpliesRelation..." << std::endl;
     
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
 
     // Verify 'implies' relation was parsed correctly (stored by consequent)
     // p, implies(light-from-galaxies, red-shifted, universe, expanding)
@@ -32,12 +32,12 @@ void testParseImpliesRelation() {
     std::cout << "Test passed: implies relation parsed correctly." << std::endl;
 }
 
-// Test: parseAssumptionsFile correctly parses 'some' relations
+// Test: loadAssumptions correctly parses 'some' relations
 void testParseSomeRelation() {
     std::cout << "Running testParseSomeRelation..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
 
     // Verify 'some' relation was parsed
     // m, some(microwave-radiation, explosion-residue)
@@ -52,12 +52,12 @@ void testParseSomeRelation() {
     std::cout << "Test passed: some relation parsed correctly." << std::endl;
 }
 
-// Test: parseAssumptionsFile correctly parses 'not' relations
+// Test: loadAssumptions correctly parses 'not' relations
 void testParseNotRelation() {
     std::cout << "Running testParseNotRelation..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
 
     // Verify 'not' relation was parsed and sets truth to FALSE
     // q, not(galaxy-formation)
@@ -70,12 +70,12 @@ void testParseNotRelation() {
     std::cout << "Test passed: not relation parsed correctly." << std::endl;
 }
 
-// Test: parseAssumptionsFile correctly parses 'discovered' relations
+// Test: loadAssumptions correctly parses 'discovered' relations
 void testParseDiscoveredRelation() {
     std::cout << "Running testParseDiscoveredRelation..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
 
     // Verify 'discovered' relation was parsed
     // t, discovered(WMAP, 999-millimeter-radiation)
@@ -87,16 +87,16 @@ void testParseDiscoveredRelation() {
     std::cout << "Test passed: discovered relation parsed correctly." << std::endl;
 }
 
-// Test: parseFactsFile correctly sets truth values
+// Test: loadFacts correctly sets truth values
 void testParseFactsFile() {
     std::cout << "Running testParseFactsFile..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
-    rationator.parseFactsFile(factsFile);
+    rationator.loadAssumptions(assumptionsFile);
+    rationator.loadFacts(factsFile);
 
     // Facts file contains: !q, p && n, !r, t = p && n, s = t || r, u = t && s
-    // parseFactsFile sets truth values based on tokens
+    // loadFacts sets truth values based on tokens
     // !q sets q to FALSE, p sets p to TRUE, n sets n to TRUE, etc.
     
     assert(rationator.getPropositionTruthValue("p") == Tripartite::TRUE);
@@ -114,7 +114,7 @@ void testModusPonens() {
     std::cout << "Running testModusPonens..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
     
     // Assumptions file has: p, implies(light-from-galaxies, red-shifted, universe, expanding)
     // This means: light-from-galaxies → universe
@@ -126,7 +126,7 @@ void testModusPonens() {
     rationator.setPropositionTruthValue("light-from-galaxies", Tripartite::TRUE);
     
     // Run deduction - Modus Ponens should fire
-    rationator.deduceAll();
+    rationator.deduce();
     
     // Now universe should be TRUE (because light-from-galaxies is TRUE)
     assert(rationator.getPropositionTruthValue("universe") == Tripartite::TRUE);
@@ -139,7 +139,7 @@ void testModusTollens() {
     std::cout << "Running testModusTollens..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
     
     // Assumptions file has: p, implies(light-from-galaxies, red-shifted, universe, expanding)
     // This means: light-from-galaxies → universe
@@ -151,7 +151,7 @@ void testModusTollens() {
     rationator.setPropositionTruthValue("universe", Tripartite::FALSE);
     
     // Run deduction - Modus Tollens should fire
-    rationator.deduceAll();
+    rationator.deduce();
     
     // Now light-from-galaxies should be FALSE (because universe is FALSE)
     assert(rationator.getPropositionTruthValue("light-from-galaxies") == Tripartite::FALSE);
@@ -186,7 +186,7 @@ void testChainedInference() {
     assert(rationator.getPropositionTruthValue("C") == Tripartite::UNKNOWN);
     
     // Run deduction - should chain: A→B fires, then B→C fires
-    rationator.deduceAll();
+    rationator.deduce();
     
     // Both B and C should now be TRUE
     assert(rationator.getPropositionTruthValue("B") == Tripartite::TRUE);
@@ -200,10 +200,10 @@ void testNoInferenceOnUnknown() {
     std::cout << "Running testNoInferenceOnUnknown..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
     
     // Don't set anything - all should remain UNKNOWN
-    rationator.deduceAll();
+    rationator.deduce();
     
     // universe should still be UNKNOWN (no evidence either way)
     assert(rationator.getPropositionTruthValue("universe") == Tripartite::UNKNOWN);

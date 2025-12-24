@@ -69,7 +69,7 @@ class Expression {
              const Proposition& right,
              LogicalOperator op);
 
-  ~Expression();
+  ~Expression() = default;
 
   void setPrefix(const std::string& p);
 
