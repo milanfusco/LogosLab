@@ -3,8 +3,112 @@
 #include <iostream>
 #include <sstream>
 #include <regex>
-#include <vector>
 
+// Constructor: register built-in handlers
+Parser::Parser() {
+    registerBuiltinHandlers();
+}
+
+// Register all built-in relation handlers
+void Parser::registerBuiltinHandlers() {
+    registerRelation("implies", handleImplies);
+    registerRelation("some", handleSome);
+    registerRelation("not", handleNot);
+    registerRelation("discovered", handleDiscovered);
+}
+
+// Built-in handler: implies(antecedent, subject, consequent, predicate)
+bool Parser::handleImplies(const std::string& prefix,
+                           const std::vector<std::string>& args,
+                           std::unordered_map<std::string, Proposition>& propositions) {
+    if (args.size() != 4) return false;
+    
+    Proposition proposition;
+    proposition.setPrefix(prefix);
+    proposition.setRelation(LogicalOperator::IMPLIES);
+    proposition.setAntecedent(args[0]);
+    proposition.setSubject(args[1]);
+    proposition.setConsequent(args[2]);
+    proposition.setPredicate(args[3]);
+    proposition.setPropositionScope(Quantifier::UNIVERSAL_AFFIRMATIVE);
+    propositions[args[2]] = proposition;  // Key is consequent
+    return true;
+}
+
+// Built-in handler: some(subject, predicate)
+bool Parser::handleSome(const std::string& prefix,
+                        const std::vector<std::string>& args,
+                        std::unordered_map<std::string, Proposition>& propositions) {
+    if (args.size() != 2) return false;
+    
+    Proposition proposition;
+    proposition.setPrefix(prefix);
+    proposition.setRelation(LogicalOperator::NONE);
+    proposition.setSubject(args[0]);
+    proposition.setPredicate(args[1]);
+    proposition.setTruthValue(Tripartite::TRUE);
+    proposition.setPropositionScope(Quantifier::PARTICULAR_AFFIRMATIVE);
+    propositions[args[0]] = proposition;  // Key is subject
+    return true;
+}
+
+// Built-in handler: not(subject)
+bool Parser::handleNot(const std::string& prefix,
+                       const std::vector<std::string>& args,
+                       std::unordered_map<std::string, Proposition>& propositions) {
+    if (args.size() != 1) return false;
+    
+    Proposition proposition;
+    proposition.setPrefix(prefix);
+    proposition.setRelation(LogicalOperator::NOT);
+    proposition.setSubject(args[0]);
+    proposition.setTruthValue(Tripartite::FALSE);
+    proposition.setPropositionScope(Quantifier::UNIVERSAL_NEGATIVE);
+    propositions[args[0]] = proposition;  // Key is subject
+    return true;
+}
+
+// Built-in handler: discovered(subject, predicate)
+bool Parser::handleDiscovered(const std::string& prefix,
+                              const std::vector<std::string>& args,
+                              std::unordered_map<std::string, Proposition>& propositions) {
+    if (args.size() != 2) return false;
+    
+    Proposition proposition;
+    proposition.setPrefix(prefix);
+    proposition.setRelation(LogicalOperator::NONE);
+    proposition.setSubject(args[0]);
+    proposition.setPredicate(args[1]);
+    propositions[args[0]] = proposition;  // Key is subject
+    return true;
+}
+
+// Register a custom relation handler
+void Parser::registerRelation(const std::string& relationName, RelationHandler handler) {
+    relationHandlers_[relationName] = std::move(handler);
+}
+
+// Unregister a relation handler
+bool Parser::unregisterRelation(const std::string& relationName) {
+    return relationHandlers_.erase(relationName) > 0;
+}
+
+// Check if a relation handler is registered
+bool Parser::hasRelation(const std::string& relationName) const {
+    return relationHandlers_.find(relationName) != relationHandlers_.end();
+}
+
+// Get list of registered relation names
+std::vector<std::string> Parser::getRegisteredRelations() const {
+    std::vector<std::string> relations;
+    relations.reserve(relationHandlers_.size());
+    for (const auto& entry : relationHandlers_) {
+        relations.push_back(entry.first);
+    }
+    return relations;
+}
+
+// Parse assumptions file using registered handlers
 std::unordered_map<std::string, Proposition> Parser::parseAssumptionsFile(const std::string& filename) {
     std::unordered_map<std::string, Proposition> propositions;
     
@@ -17,31 +121,6 @@ std::unordered_map<std::string, Proposition> Parser::parseAssumptionsFile(const 
     std::string line;
     // Regex pattern to match lines like "prefix, relation(arg1, arg2, arg3, arg4)"
     std::regex linePattern(R"(^\s*(\w+)\s*,\s*(\w+)\s*\(\s*([-\w\s\d,]+?)\s*\)\s*$)");
-    /* Explanation of the regex pattern:
-    R"( ... )" is a raw string literal that allows us to write the regex pattern without escaping backslashes.
-    ^            : Assert position at the start of the line.
-    \s*          : Match any leading whitespace (optional).
-    (\w+)        : Match and capture the "prefix" as one or more word characters (letters, digits, or underscore).
-    \s*          : Match optional whitespace after the prefix.
-    ,            : Match the literal comma that separates the prefix from the relation type.
-    \s*          : Match optional whitespace after the comma.
-    (\w+)        : Match and capture the "relation" as one or more word characters (e.g., "implies", "some", "not").
-    \s*          : Match optional whitespace after the relation.
-    \(           : Match the opening parenthesis that starts the argument list.
-    \s*          : Match any whitespace at the start of the argument list (optional).
-    ([^)]+?)     : Match and capture everything inside the parentheses, stopping before the closing parenthesis.
-                - `[^)]` matches any character except the closing parenthesis.
-                - `+?` is a "lazy" quantifier that captures one or more characters, stopping as soon as it finds `)` after the arguments.
-    \s*          : Match any whitespace after the argument list (optional).
-    \)           : Match the closing parenthesis of the argument list.
-    \s*          : Match any trailing whitespace after the closing parenthesis (optional).
-    $            : Assert position at the end of the line.
-    */
-
-    // Example: For a line like "n, implies(big-bang, occurred, microwave-radiation, present)", this pattern captures:
-    //   match[1] = "n"         (prefix)
-    //   match[2] = "implies"   (relation)
-    //   match[3] = "big-bang, occurred, microwave-radiation, present" (arguments as a single string)
     std::smatch match;
 
     while (std::getline(file, line)) {
@@ -52,47 +131,25 @@ std::unordered_map<std::string, Proposition> Parser::parseAssumptionsFile(const 
 
             // Split arguments
             std::istringstream argsStream(arguments);
-            std::vector<std::string> parts;
-            std::string part;
-            while (std::getline(argsStream, part, ',')) {
-                part.erase(0, part.find_first_not_of(" \t"));
-                part.erase(part.find_last_not_of(" \t") + 1);
-                parts.push_back(part);
+            std::vector<std::string> args;
+            std::string arg;
+            while (std::getline(argsStream, arg, ',')) {
+                arg.erase(0, arg.find_first_not_of(" \t"));
+                arg.erase(arg.find_last_not_of(" \t") + 1);
+                args.push_back(arg);
             }
 
-            // Process each relation type
-            Proposition proposition;
-            proposition.setPrefix(prefix);
-
-            if (relation == "implies" && parts.size() == 4) {
-                proposition.setRelation(LogicalOperator::IMPLIES);
-                proposition.setAntecedent(parts[0]);
-                proposition.setSubject(parts[1]);
-                proposition.setConsequent(parts[2]);
-                proposition.setPredicate(parts[3]);
-                proposition.setPropositionScope(Quantifier::UNIVERSAL_AFFIRMATIVE);
-                propositions[parts[2]] = proposition;
-
-            } else if (relation == "some" && parts.size() == 2) {
-                proposition.setRelation(LogicalOperator::NONE);
-                proposition.setSubject(parts[0]);
-                proposition.setPredicate(parts[1]);
-                proposition.setTruthValue(Tripartite::TRUE);
-                proposition.setPropositionScope(Quantifier::PARTICULAR_AFFIRMATIVE);
-                propositions[parts[0]] = proposition;
-
-            } else if (relation == "not" && parts.size() == 1) {
-                proposition.setRelation(LogicalOperator::NOT);
-                proposition.setSubject(parts[0]);
-                proposition.setTruthValue(Tripartite::FALSE);
-                proposition.setPropositionScope(Quantifier::UNIVERSAL_NEGATIVE);
-                propositions[parts[0]] = proposition;
-
-            } else if (relation == "discovered" && parts.size() == 2) {
-                proposition.setRelation(LogicalOperator::NONE);
-                proposition.setSubject(parts[0]);
-                proposition.setPredicate(parts[1]);
-                propositions[parts[0]] = proposition;
+            // Look up and invoke the registered handler
+            auto it = relationHandlers_.find(relation);
+            if (it != relationHandlers_.end()) {
+                bool success = it->second(prefix, args, propositions);
+                if (!success) {
+                    std::cerr << "Warning: Handler for '" << relation 
+                              << "' failed to process: " << line << std::endl;
+                }
+            } else {
+                std::cerr << "Warning: Unknown relation type '" << relation 
+                          << "' in line: " << line << std::endl;
             }
         } else {
             std::cerr << "Error parsing line: " << line 
