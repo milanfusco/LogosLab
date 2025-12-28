@@ -6,22 +6,14 @@
 
 /**
  * Enum class to represent logical operators for propositions.
+ * LPAREN and RPAREN are used for grouping in expressions.
  */
-enum class LogicalOperator { NONE, AND, OR, NOT, IMPLIES, EQUIVALENT };
+enum class LogicalOperator { NONE, AND, OR, NOT, IMPLIES, EQUIVALENT, LPAREN, RPAREN };
 
 /**
  * Enum to represent a three-valued logic: true, false, unknown.
  */
 enum class Tripartite { TRUE = 0, FALSE = 1, UNKNOWN = -1 };
-
-/**
- * @overload operator==
- * @brief Equality operator for Tripartite values.
- * @param left The left Tripartite value
- * @param right The right Tripartite value
- * @return True if the values are equal, false otherwise
- */
-bool operator==(Tripartite left, Tripartite right);
 
 /**
  * @overload operator&&

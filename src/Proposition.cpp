@@ -3,11 +3,6 @@
 
 //***  Tripartite Operators ***//
 
-// Equality operator for Tripartite
-bool operator==(Tripartite left, Tripartite right) {
-  return static_cast<int>(left) == static_cast<int>(right);
-}
-
 // Logical AND operator for Tripartite
 Tripartite operator&&(Tripartite left, Tripartite right) {
   if (left == Tripartite::FALSE || right == Tripartite::FALSE)
@@ -62,7 +57,10 @@ Proposition::Proposition()
       truth_value(Tripartite::UNKNOWN),
       proposition_scope(Quantifier::NONE) {}
 
-Proposition::Proposition(Tripartite truth_value) : truth_value(truth_value) {}
+Proposition::Proposition(Tripartite truth_value)
+    : Proposition() {
+  this->truth_value = truth_value;
+}
 
 Proposition::Proposition(const std::string& prefix, Tripartite truth_value)
     : prefix(prefix),

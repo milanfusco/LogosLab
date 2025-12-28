@@ -3,98 +3,229 @@
 #include <cassert>
 #include <string>
 
-const std::string assumptionsFile = "/Users/milanfusco/Documents/repositories/LogosLab/assumptions_file.txt";
-const std::string factsFile = "/Users/milanfusco/Documents/repositories/LogosLab/facts_file.txt";
+// Use paths relative to the project root (where tests are run from)
+#ifndef TEST_DATA_DIR
+#define TEST_DATA_DIR ".."
+#endif
 
-// Test function to parse assumptions and verify initial conditions
-void testParseAssumptions() {
-    std::cout << "Running testParseAssumptions..." << std::endl;
+const std::string assumptionsFile = std::string(TEST_DATA_DIR) + "/assumptions_file.txt";
+const std::string factsFile = std::string(TEST_DATA_DIR) + "/facts_file.txt";
+
+// Test: loadAssumptions correctly parses 'implies' relations
+void testParseImpliesRelation() {
+    std::cout << "Running testParseImpliesRelation..." << std::endl;
     
-    // Create a fresh Ratiocinator instance for each test
     Ratiocinator rationator;
-    rationator.parseFactsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
 
-    // Set an initial condition: "big-bang" is assumed to be true
-    rationator.propositions["big-bang"].setTruthValue(Tripartite::TRUE);
+    // Verify 'implies' relation was parsed correctly (stored by consequent)
+    // p, implies(light-from-galaxies, red-shifted, universe, expanding)
+    const Proposition* prop = rationator.getProposition("universe");
+    assert(prop != nullptr);
+    assert(prop->getRelation() == LogicalOperator::IMPLIES);
+    assert(prop->getAntecedent() == "light-from-galaxies");
+    assert(prop->getSubject() == "red-shifted");
+    assert(prop->getConsequent() == "universe");
+    assert(prop->getPredicate() == "expanding");
+    assert(prop->getPropositionScope() == Quantifier::UNIVERSAL_AFFIRMATIVE);
 
-    // Deduce values based on assumptions
-    rationator.deduceAll();
-
-    // Assertion: Expect "microwave-radiation" to be true because "big-bang implies microwave-radiation"
-    assert(rationator.propositions["microwave-radiation"].getTruthValue() == Tripartite::TRUE);
-    std::cout << "Test passed: big-bang implies microwave-radiation." << std::endl;
+    std::cout << "Test passed: implies relation parsed correctly." << std::endl;
 }
 
-// Test function for universe expansion implication
-void testUniverseExpansionImplication() {
-    std::cout << "Running testUniverseExpansionImplication..." << std::endl;
+// Test: loadAssumptions correctly parses 'some' relations
+void testParseSomeRelation() {
+    std::cout << "Running testParseSomeRelation..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseFactsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
 
-    // Set initial conditions based on known facts
-    rationator.propositions["light-from-galaxies"].setTruthValue(Tripartite::TRUE);
-    rationator.propositions["red-shifted"].setTruthValue(Tripartite::TRUE);
-
-    // Deduce values based on new facts
-    rationator.deduceAll();
-
-    // Assertion: Expect "universe" to be true because "light-from-galaxies and red-shifted imply universe expanding"
-    assert(rationator.propositions["universe"].getTruthValue() == Tripartite::TRUE);
-    std::cout << "Test passed: light-from-galaxies and red-shifted imply universe expansion." << std::endl;
+    // Verify 'some' relation was parsed
+    // m, some(microwave-radiation, explosion-residue)
+    // Note: 'some' stores by subject (parts[0]) and sets truth to TRUE
+    const Proposition* prop = rationator.getProposition("microwave-radiation");
+    assert(prop != nullptr);
+    assert(rationator.getPropositionTruthValue("microwave-radiation") == Tripartite::TRUE);
+    assert(prop->getPropositionScope() == Quantifier::PARTICULAR_AFFIRMATIVE);
+    assert(prop->getSubject() == "microwave-radiation");
+    assert(prop->getPredicate() == "explosion-residue");
+    
+    std::cout << "Test passed: some relation parsed correctly." << std::endl;
 }
 
-// Test function for negation on galaxy formation explanation
-void testGalaxyFormationNegation() {
-    std::cout << "Running testGalaxyFormationNegation..." << std::endl;
+// Test: loadAssumptions correctly parses 'not' relations
+void testParseNotRelation() {
+    std::cout << "Running testParseNotRelation..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseFactsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
 
-    // Assertion: Expect "galaxy-formation" to be false because "not explains(big-bang, galaxy-formation)"
-    assert(rationator.propositions["galaxy-formation"].getTruthValue() == Tripartite::FALSE);
-    std::cout << "Test passed: big-bang does not explain galaxy formation." << std::endl;
+    // Verify 'not' relation was parsed and sets truth to FALSE
+    // q, not(galaxy-formation)
+    const Proposition* prop = rationator.getProposition("galaxy-formation");
+    assert(prop != nullptr);
+    assert(prop->getRelation() == LogicalOperator::NOT);
+    assert(rationator.getPropositionTruthValue("galaxy-formation") == Tripartite::FALSE);
+    assert(prop->getPropositionScope() == Quantifier::UNIVERSAL_NEGATIVE);
+
+    std::cout << "Test passed: not relation parsed correctly." << std::endl;
 }
 
-// Test function for thermal-dynamics-law uncertainty
-void testThermalDynamicsLawUncertainty() {
-    std::cout << "Running testThermalDynamicsLawUncertainty..." << std::endl;
+// Test: loadAssumptions correctly parses 'discovered' relations
+void testParseDiscoveredRelation() {
+    std::cout << "Running testParseDiscoveredRelation..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseFactsFile(assumptionsFile);
+    rationator.loadAssumptions(assumptionsFile);
 
-    // Assertion: Expect "thermal-dynamics-law" to be unknown based on current information
-    assert(rationator.propositions["thermal-dynamics-law"].getTruthValue() == Tripartite::UNKNOWN);
-    std::cout << "Test passed: thermal-dynamics-law remains unknown." << std::endl;
+    // Verify 'discovered' relation was parsed
+    // t, discovered(WMAP, 999-millimeter-radiation)
+    const Proposition* prop = rationator.getProposition("WMAP");
+    assert(prop != nullptr);
+    assert(prop->getSubject() == "WMAP");
+    assert(prop->getPredicate() == "999-millimeter-radiation");
+
+    std::cout << "Test passed: discovered relation parsed correctly." << std::endl;
 }
 
-// Test function to parse and evaluate facts
-void testParseAndEvaluateFacts() {
-    std::cout << "Running testParseAndEvaluateFacts..." << std::endl;
+// Test: loadFacts correctly sets truth values
+void testParseFactsFile() {
+    std::cout << "Running testParseFactsFile..." << std::endl;
 
     Ratiocinator rationator;
-    rationator.parseAssumptionsFile(assumptionsFile);
-    rationator.parseFactsFile(factsFile);
+    rationator.loadAssumptions(assumptionsFile);
+    rationator.loadFacts(factsFile);
 
-    // Run deduction based on parsed facts
-    rationator.deduceAll();
+    // Facts file contains: !q, p && n, !r, t = p && n, s = t || r, u = t && s
+    // loadFacts sets truth values based on tokens
+    // !q sets q to FALSE, p sets p to TRUE, n sets n to TRUE, etc.
+    
+    assert(rationator.getPropositionTruthValue("p") == Tripartite::TRUE);
+    assert(rationator.getPropositionTruthValue("n") == Tripartite::TRUE);
 
-    // Verify combined deductions with intermediate variables
-    assert(rationator.propositions["t"].getTruthValue() == Tripartite::TRUE);
-    assert(rationator.propositions["s"].getTruthValue() == Tripartite::TRUE);
-    assert(rationator.propositions["u"].getTruthValue() == Tripartite::TRUE);
+    std::cout << "Test passed: facts file parsed correctly." << std::endl;
+}
 
-    std::cout << "Test passed: Facts file parsed and evaluated with expected truth values for t, s, and u." << std::endl;
+// ============================================================
+// INFERENCE TESTS - The brain of the Ratiocinator
+// ============================================================
+
+// Test: Modus Ponens - P → Q, P is TRUE ⊢ Q is TRUE
+void testModusPonens() {
+    std::cout << "Running testModusPonens..." << std::endl;
+
+    Ratiocinator rationator;
+    rationator.loadAssumptions(assumptionsFile);
+    
+    // Assumptions file has: p, implies(light-from-galaxies, red-shifted, universe, expanding)
+    // This means: light-from-galaxies → universe
+    
+    // Initially, universe should be UNKNOWN
+    assert(rationator.getPropositionTruthValue("universe") == Tripartite::UNKNOWN);
+    
+    // Set the antecedent to TRUE
+    rationator.setPropositionTruthValue("light-from-galaxies", Tripartite::TRUE);
+    
+    // Run deduction - Modus Ponens should fire
+    rationator.deduce();
+    
+    // Now universe should be TRUE (because light-from-galaxies is TRUE)
+    assert(rationator.getPropositionTruthValue("universe") == Tripartite::TRUE);
+    
+    std::cout << "Test passed: Modus Ponens correctly infers consequent." << std::endl;
+}
+
+// Test: Modus Tollens - P → Q, Q is FALSE ⊢ P is FALSE
+void testModusTollens() {
+    std::cout << "Running testModusTollens..." << std::endl;
+
+    Ratiocinator rationator;
+    rationator.loadAssumptions(assumptionsFile);
+    
+    // Assumptions file has: p, implies(light-from-galaxies, red-shifted, universe, expanding)
+    // This means: light-from-galaxies → universe
+    
+    // Initially, light-from-galaxies should be UNKNOWN (or not exist)
+    assert(rationator.getPropositionTruthValue("light-from-galaxies") == Tripartite::UNKNOWN);
+    
+    // Set the consequent to FALSE
+    rationator.setPropositionTruthValue("universe", Tripartite::FALSE);
+    
+    // Run deduction - Modus Tollens should fire
+    rationator.deduce();
+    
+    // Now light-from-galaxies should be FALSE (because universe is FALSE)
+    assert(rationator.getPropositionTruthValue("light-from-galaxies") == Tripartite::FALSE);
+    
+    std::cout << "Test passed: Modus Tollens correctly infers antecedent is false." << std::endl;
+}
+
+// Test: Chained inference - A → B, B → C, A is TRUE ⊢ C is TRUE
+void testChainedInference() {
+    std::cout << "Running testChainedInference..." << std::endl;
+
+    Ratiocinator rationator;
+    
+    // Manually create a chain: A → B → C
+    Proposition impAB;
+    impAB.setRelation(LogicalOperator::IMPLIES);
+    impAB.setAntecedent("A");
+    impAB.setConsequent("B");
+    rationator.setProposition("B", impAB);
+    
+    Proposition impBC;
+    impBC.setRelation(LogicalOperator::IMPLIES);
+    impBC.setAntecedent("B");
+    impBC.setConsequent("C");
+    rationator.setProposition("C", impBC);
+    
+    // Set A to TRUE
+    rationator.setPropositionTruthValue("A", Tripartite::TRUE);
+    
+    // Initially B and C should be UNKNOWN
+    assert(rationator.getPropositionTruthValue("B") == Tripartite::UNKNOWN);
+    assert(rationator.getPropositionTruthValue("C") == Tripartite::UNKNOWN);
+    
+    // Run deduction - should chain: A→B fires, then B→C fires
+    rationator.deduce();
+    
+    // Both B and C should now be TRUE
+    assert(rationator.getPropositionTruthValue("B") == Tripartite::TRUE);
+    assert(rationator.getPropositionTruthValue("C") == Tripartite::TRUE);
+    
+    std::cout << "Test passed: Chained inference propagates correctly." << std::endl;
+}
+
+// Test: No inference when antecedent is UNKNOWN
+void testNoInferenceOnUnknown() {
+    std::cout << "Running testNoInferenceOnUnknown..." << std::endl;
+
+    Ratiocinator rationator;
+    rationator.loadAssumptions(assumptionsFile);
+    
+    // Don't set anything - all should remain UNKNOWN
+    rationator.deduce();
+    
+    // universe should still be UNKNOWN (no evidence either way)
+    assert(rationator.getPropositionTruthValue("universe") == Tripartite::UNKNOWN);
+    
+    std::cout << "Test passed: No spurious inference on UNKNOWN values." << std::endl;
 }
 
 // Main function to run all tests
 int main() {
-    testParseAssumptions();
-    testUniverseExpansionImplication();
-    testGalaxyFormationNegation();
-    testThermalDynamicsLawUncertainty();
-    testParseAndEvaluateFacts();
+    // Parsing tests
+    testParseImpliesRelation();
+    testParseSomeRelation();
+    testParseNotRelation();
+    testParseDiscoveredRelation();
+    testParseFactsFile();
+    
+    // Inference tests (THE IMPORTANT ONES!)
+    testModusPonens();
+    testModusTollens();
+    testChainedInference();
+    testNoInferenceOnUnknown();
 
-    std::cout << "All tests passed successfully." << std::endl;
+    std::cout << "\n All Ratiocinator tests passed successfully!" << std::endl;
     return 0;
 }

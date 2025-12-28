@@ -1,38 +1,51 @@
 #include <iostream>
+#include <fstream>
 #include <string>
 #include "Ratiocinator.h"
 
+namespace {
+    constexpr int EXPECTED_ARGS = 3;
+    constexpr const char* REPORT_FILENAME = "ratiocinator_report.txt";
+}
+
 int main(int argc, char* argv[]) {
-  if (argc != 3) {
-    std::cerr << "Usage: ./LogosLab "
-                "/path/to/<assumptions_file>.txt /path/to/<facts_file>.txt"
-              << std::endl;
-    return 1;
-  }
+    if (argc != EXPECTED_ARGS) {
+        std::cerr << "Usage: ./LogosLab "
+                     "/path/to/<assumptions_file>.txt /path/to/<facts_file>.txt"
+                  << std::endl;
+        return 1;
+    }
 
-  // Get the file paths from command-line arguments
-  std::string assumptionsFile = argv[1];
-  std::string factsFile = argv[2];
+    // Get the file paths from command-line arguments
+    std::string assumptionsFile = argv[1];
+    std::string factsFile = argv[2];
 
-  // Create an instance of Ratiocinator
-  Ratiocinator rationator;
+    // Create an instance of Ratiocinator
+    Ratiocinator engine;
 
-  // Parse the assumptions file
-  std::cout << "Parsing assumptions file: " << assumptionsFile << std::endl;
-  rationator.parseAssumptionsFile(assumptionsFile);
+    // Load assumptions
+    std::cout << "Loading assumptions: " << assumptionsFile << std::endl;
+    engine.loadAssumptions(assumptionsFile);
 
-  // Parse the facts file
-  std::cout << "Parsing facts file: " << factsFile << std::endl;
-  rationator.parseFactsFile(factsFile);
+    // Load facts
+    std::cout << "Loading facts: " << factsFile << std::endl;
+    engine.loadFacts(factsFile);
 
-  // Deduce truth values of all propositions based on loaded expressions
-  std::cout << "Deducting truth values based on loaded expressions..."
-            << std::endl;
-  rationator.deduceAll();
+    // Deduce truth values
+    std::cout << "Deducing truth values..." << std::endl;
+    engine.deduce();
 
-  // Output final truth values for each proposition
-  std::cout << "Final truth values of propositions:" << std::endl;
-  rationator.outputTruthValues();
+    // Write report
+    std::ofstream reportFile(REPORT_FILENAME);
+    if (!reportFile) {
+        std::cerr << "Error: Could not open " << REPORT_FILENAME << " for writing." << std::endl;
+        return 1;
+    }
 
-  return 0;
+    reportFile << "Final truth values of propositions:\n";
+    reportFile << engine.formatResults();
+
+    std::cout << "Results written to " << REPORT_FILENAME << std::endl;
+
+    return 0;
 }
