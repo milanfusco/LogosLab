@@ -33,9 +33,9 @@ std::string SourceLocation::toString() const {
     return oss.str();
 }
 
-// ========== Token ==========
+// ========== LexerToken ==========
 
-bool Token::isOperator() const {
+bool LexerToken::isOperator() const {
     switch (type) {
         case TokenType::AND:
         case TokenType::OR:
@@ -48,7 +48,7 @@ bool Token::isOperator() const {
     }
 }
 
-bool Token::isPunctuation() const {
+bool LexerToken::isPunctuation() const {
     switch (type) {
         case TokenType::LPAREN:
         case TokenType::RPAREN:
@@ -60,7 +60,7 @@ bool Token::isPunctuation() const {
     }
 }
 
-std::string Token::toString() const {
+std::string LexerToken::toString() const {
     std::ostringstream oss;
     oss << tokenTypeToString(type) << "(\"" << value << "\") at " << location.toString();
     return oss.str();
@@ -195,7 +195,7 @@ bool Lexer::isIdentifierContinue(char c) const {
     return false;
 }
 
-Token Lexer::scanIdentifier() {
+LexerToken Lexer::scanIdentifier() {
     SourceLocation startLoc = currentLocation();
     std::string value;
     
@@ -216,28 +216,28 @@ Token Lexer::scanIdentifier() {
                        [](unsigned char c) { return std::tolower(c); });
         
         if (lower == "and") {
-            return Token(TokenType::AND, value, startLoc);
+            return LexerToken(TokenType::AND, value, startLoc);
         } else if (lower == "or") {
-            return Token(TokenType::OR, value, startLoc);
+            return LexerToken(TokenType::OR, value, startLoc);
         } else if (lower == "not") {
-            return Token(TokenType::NOT, value, startLoc);
+            return LexerToken(TokenType::NOT, value, startLoc);
         } else if (lower == "implies") {
             // Note: "implies" as a keyword is only treated as operator in expression context
             // In assumption files, it's a function name (identifier)
             // We return IDENTIFIER here; the parser decides based on context
         } else if (lower == "iff") {
-            return Token(TokenType::EQUIVALENT, value, startLoc);
+            return LexerToken(TokenType::EQUIVALENT, value, startLoc);
         }
     }
     
-    return Token(TokenType::IDENTIFIER, value, startLoc);
+    return LexerToken(TokenType::IDENTIFIER, value, startLoc);
 }
 
-Token Lexer::scanToken() {
+LexerToken Lexer::scanToken() {
     skipWhitespace();
     
     if (isAtEnd()) {
-        return Token(TokenType::END_OF_INPUT, "", currentLocation());
+        return LexerToken(TokenType::END_OF_INPUT, "", currentLocation());
     }
     
     SourceLocation startLoc = currentLocation();
@@ -246,23 +246,23 @@ Token Lexer::scanToken() {
     // Newline (only if emitNewlines is true)
     if (c == '\n' && options_.emitNewlines) {
         advance();
-        return Token(TokenType::NEWLINE, "\\n", startLoc);
+        return LexerToken(TokenType::NEWLINE, "\\n", startLoc);
     }
     
     // Single-character tokens
     switch (c) {
         case '(':
             advance();
-            return Token(TokenType::LPAREN, "(", startLoc);
+            return LexerToken(TokenType::LPAREN, "(", startLoc);
         case ')':
             advance();
-            return Token(TokenType::RPAREN, ")", startLoc);
+            return LexerToken(TokenType::RPAREN, ")", startLoc);
         case ',':
             advance();
-            return Token(TokenType::COMMA, ",", startLoc);
+            return LexerToken(TokenType::COMMA, ",", startLoc);
         case '!':
             advance();
-            return Token(TokenType::NOT, "!", startLoc);
+            return LexerToken(TokenType::NOT, "!", startLoc);
         case '~':
             // Could be negation operator or start of identifier like ~P
             if (peek(1) != '\0' && isIdentifierStart(peek(1))) {
@@ -270,7 +270,7 @@ Token Lexer::scanToken() {
                 return scanIdentifier();
             }
             advance();
-            return Token(TokenType::NOT, "~", startLoc);
+            return LexerToken(TokenType::NOT, "~", startLoc);
         default:
             break;
     }
@@ -278,32 +278,32 @@ Token Lexer::scanToken() {
     // Multi-character operators
     if (c == '&' && peek(1) == '&') {
         advance(); advance();
-        return Token(TokenType::AND, "&&", startLoc);
+        return LexerToken(TokenType::AND, "&&", startLoc);
     }
     
     if (c == '|' && peek(1) == '|') {
         advance(); advance();
-        return Token(TokenType::OR, "||", startLoc);
+        return LexerToken(TokenType::OR, "||", startLoc);
     }
     
     if (c == '-' && peek(1) == '>') {
         advance(); advance();
-        return Token(TokenType::IMPLIES, "->", startLoc);
+        return LexerToken(TokenType::IMPLIES, "->", startLoc);
     }
     
     if (c == '<' && peek(1) == '-' && peek(2) == '>') {
         advance(); advance(); advance();
-        return Token(TokenType::EQUIVALENT, "<->", startLoc);
+        return LexerToken(TokenType::EQUIVALENT, "<->", startLoc);
     }
     
     if (c == '=') {
         // Check for == (equality) vs = (assignment)
         if (peek(1) == '=') {
             advance(); advance();
-            return Token(TokenType::EQUIVALENT, "==", startLoc);
+            return LexerToken(TokenType::EQUIVALENT, "==", startLoc);
         }
         advance();
-        return Token(TokenType::ASSIGN, "=", startLoc);
+        return LexerToken(TokenType::ASSIGN, "=", startLoc);
     }
     
     // Identifiers
@@ -322,14 +322,14 @@ Token Lexer::scanToken() {
     throw LexerError("Unexpected character '" + unknownChar + "'", startLoc, getContext());
 }
 
-std::vector<Token> Lexer::tokenize(const std::string& input) {
+std::vector<LexerToken> Lexer::tokenize(const std::string& input) {
     reset();
     input_ = input;
     
-    std::vector<Token> tokens;
+    std::vector<LexerToken> tokens;
     
     while (true) {
-        Token token = scanToken();
+        LexerToken token = scanToken();
         tokens.push_back(token);
         
         if (token.type == TokenType::END_OF_INPUT) {
@@ -340,7 +340,7 @@ std::vector<Token> Lexer::tokenize(const std::string& input) {
     return tokens;
 }
 
-std::vector<Token> Lexer::tokenizeContent(const std::string& input) {
+std::vector<LexerToken> Lexer::tokenizeContent(const std::string& input) {
     auto tokens = tokenize(input);
     
     // Remove the END_OF_INPUT token

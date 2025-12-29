@@ -54,15 +54,16 @@ struct SourceLocation {
 };
 
 /**
- * Token represents a single lexical token with its type, value, and location.
+ * LexerToken represents a single lexical token with its type, value, and location.
+ * Named LexerToken to avoid conflict with Expression::Token.
  */
-struct Token {
+struct LexerToken {
     TokenType type;           ///< The type of token
     std::string value;        ///< The original text of the token
     SourceLocation location;  ///< Where the token starts in the source
     
-    Token() : type(TokenType::UNKNOWN), value(""), location() {}
-    Token(TokenType t, const std::string& v, const SourceLocation& loc)
+    LexerToken() : type(TokenType::UNKNOWN), value(""), location() {}
+    LexerToken(TokenType t, const std::string& v, const SourceLocation& loc)
         : type(t), value(v), location(loc) {}
     
     /// Check if this is an operator token
@@ -155,10 +156,10 @@ private:
     std::string getContext() const;
     
     /// Scan a single token
-    Token scanToken();
+    LexerToken scanToken();
     
     /// Scan an identifier (alphanumeric, hyphens, underscores)
-    Token scanIdentifier();
+    LexerToken scanIdentifier();
     
     /// Check if character can start an identifier
     static bool isIdentifierStart(char c);
@@ -178,13 +179,13 @@ public:
      * @return Vector of tokens (always ends with END_OF_INPUT)
      * @throws LexerError on invalid input
      */
-    std::vector<Token> tokenize(const std::string& input);
+    std::vector<LexerToken> tokenize(const std::string& input);
     
     /**
      * Tokenize and return tokens without END_OF_INPUT marker.
      * Useful for simpler iteration.
      */
-    std::vector<Token> tokenizeContent(const std::string& input);
+    std::vector<LexerToken> tokenizeContent(const std::string& input);
     
     /**
      * Set lexer options.

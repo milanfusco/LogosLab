@@ -236,23 +236,23 @@ void testEmptyInput() {
     std::cout << "Test passed: Empty input handled correctly." << std::endl;
 }
 
-// Test: Token utility methods
+// Test: LexerToken utility methods
 void testTokenMethods() {
     std::cout << "Running testTokenMethods..." << std::endl;
     
-    Token andToken(TokenType::AND, "&&", SourceLocation(1, 1, 0));
+    LexerToken andToken(TokenType::AND, "&&", SourceLocation(1, 1, 0));
     assert(andToken.isOperator());
     assert(!andToken.isPunctuation());
     
-    Token parenToken(TokenType::LPAREN, "(", SourceLocation(1, 1, 0));
+    LexerToken parenToken(TokenType::LPAREN, "(", SourceLocation(1, 1, 0));
     assert(!parenToken.isOperator());
     assert(parenToken.isPunctuation());
     
-    Token idToken(TokenType::IDENTIFIER, "foo", SourceLocation(1, 1, 0));
+    LexerToken idToken(TokenType::IDENTIFIER, "foo", SourceLocation(1, 1, 0));
     assert(!idToken.isOperator());
     assert(!idToken.isPunctuation());
     
-    std::cout << "Test passed: Token methods work correctly." << std::endl;
+    std::cout << "Test passed: LexerToken methods work correctly." << std::endl;
 }
 
 // Test: Error on unknown character

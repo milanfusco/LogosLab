@@ -1,4 +1,5 @@
 #include "Ratiocinator.h"
+#include "Parser.h"
 #include <iostream>
 #include <cassert>
 #include <string>
@@ -434,6 +435,87 @@ void testInferenceProvenance() {
     std::cout << "Test passed: Inference provenance is correctly tracked." << std::endl;
 }
 
+// ============================================================
+// ENHANCED PARSER TESTS - Expression syntax in facts files
+// ============================================================
+
+// Test: parseExpressionString builds expressions correctly
+void testParseExpressionString() {
+    std::cout << "Running testParseExpressionString..." << std::endl;
+    
+    Parser parser;
+    std::unordered_map<std::string, Proposition> propositions;
+    
+    // Set up some known propositions
+    propositions["A"].setTruthValue(Tripartite::TRUE);
+    propositions["B"].setTruthValue(Tripartite::TRUE);
+    propositions["C"].setTruthValue(Tripartite::FALSE);
+    
+    // Test simple AND expression
+    Expression expr1 = parser.parseExpressionString("A && B", propositions, "test1");
+    Tripartite result1 = expr1.evaluate();
+    assert(result1 == Tripartite::TRUE);  // TRUE && TRUE = TRUE
+    
+    // Test AND with FALSE
+    Expression expr2 = parser.parseExpressionString("A && C", propositions, "test2");
+    Tripartite result2 = expr2.evaluate();
+    assert(result2 == Tripartite::FALSE);  // TRUE && FALSE = FALSE
+    
+    // Test OR expression
+    Expression expr3 = parser.parseExpressionString("A || C", propositions, "test3");
+    Tripartite result3 = expr3.evaluate();
+    assert(result3 == Tripartite::TRUE);  // TRUE || FALSE = TRUE
+    
+    // Test parenthesized expression
+    Expression expr4 = parser.parseExpressionString("(A && B) || C", propositions, "test4");
+    Tripartite result4 = expr4.evaluate();
+    assert(result4 == Tripartite::TRUE);  // (TRUE && TRUE) || FALSE = TRUE
+    
+    std::cout << "Test passed: parseExpressionString builds expressions correctly." << std::endl;
+}
+
+// Test: Enhanced facts file with assignments
+void testEnhancedFactsFile() {
+    std::cout << "Running testEnhancedFactsFile..." << std::endl;
+    
+    Ratiocinator rationator;
+    rationator.loadAssumptions(assumptionsFile);
+    rationator.loadFacts(factsFile);
+    
+    // The facts file contains: t = p && n
+    // p and n should both be TRUE (from other lines)
+    assert(rationator.getPropositionTruthValue("p") == Tripartite::TRUE);
+    assert(rationator.getPropositionTruthValue("n") == Tripartite::TRUE);
+    
+    // t should be assigned the result of p && n = TRUE
+    assert(rationator.getPropositionTruthValue("t") == Tripartite::TRUE);
+    
+    // s = t || r, where t=TRUE, so s should be TRUE
+    assert(rationator.getPropositionTruthValue("s") == Tripartite::TRUE);
+    
+    // u = t && s, where both are TRUE
+    assert(rationator.getPropositionTruthValue("u") == Tripartite::TRUE);
+    
+    std::cout << "Test passed: Enhanced facts file with assignments works correctly." << std::endl;
+}
+
+// Test: Negation in facts file
+void testFactsNegation() {
+    std::cout << "Running testFactsNegation..." << std::endl;
+    
+    Ratiocinator rationator;
+    rationator.loadAssumptions(assumptionsFile);
+    rationator.loadFacts(factsFile);
+    
+    // !q should set q to FALSE
+    assert(rationator.getPropositionTruthValue("q") == Tripartite::FALSE);
+    
+    // !r should set r to FALSE
+    assert(rationator.getPropositionTruthValue("r") == Tripartite::FALSE);
+    
+    std::cout << "Test passed: Negation in facts file works correctly." << std::endl;
+}
+
 // Main function to run all tests
 int main() {
     // Parsing tests
@@ -456,6 +538,11 @@ int main() {
     testDisjunctiveSyllogismReverse();
     testResolution();
     testInferenceProvenance();
+    
+    // Enhanced parser tests (expression syntax)
+    testParseExpressionString();
+    testEnhancedFactsFile();
+    testFactsNegation();
 
     std::cout << "\n All Ratiocinator tests passed successfully!" << std::endl;
     return 0;
