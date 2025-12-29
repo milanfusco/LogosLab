@@ -14,7 +14,9 @@ void Ratiocinator::loadAssumptions(const std::string& filename) {
 }
 
 void Ratiocinator::loadFacts(const std::string& filename) {
-    parser_.parseFactsFile(filename, propositions_);
+    // Use the enhanced parseFactsFile that builds Expression objects
+    // from complex facts and populates the expressions_ vector
+    parser_.parseFactsFile(filename, propositions_, expressions_);
 }
 
 void Ratiocinator::deduce() {
@@ -81,11 +83,23 @@ const std::unordered_map<std::string, Proposition>& Ratiocinator::getProposition
     return propositions_;
 }
 
-// Expression accessors
+// ========== Expression Accessors ==========
+
 void Ratiocinator::addExpression(const Expression& expr) {
     expressions_.push_back(expr);
 }
 
+Expression Ratiocinator::addExpressionFromString(const std::string& exprString,
+                                                  const std::string& prefix) {
+    Expression expr = parser_.parseExpressionString(exprString, propositions_, prefix);
+    expressions_.push_back(expr);
+    return expr;
+}
+
 const std::vector<Expression>& Ratiocinator::getExpressions() const {
     return expressions_;
+}
+
+void Ratiocinator::clearExpressions() {
+    expressions_.clear();
 }

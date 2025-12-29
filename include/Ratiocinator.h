@@ -62,8 +62,21 @@ public:
 
     // ========== Expression Accessors ==========
     
+    /// Add a pre-built expression to the knowledge base
     void addExpression(const Expression& expr);
+    
+    /// Parse and add an expression from a string (e.g., "A && B -> C")
+    /// @param exprString The expression to parse
+    /// @param prefix Optional name/prefix for the expression
+    /// @return The parsed and added expression
+    Expression addExpressionFromString(const std::string& exprString, 
+                                       const std::string& prefix = "");
+    
+    /// Get all expressions in the knowledge base
     const std::vector<Expression>& getExpressions() const;
+    
+    /// Clear all expressions
+    void clearExpressions();
 };
 
 #endif // RATIOCINATOR_H
