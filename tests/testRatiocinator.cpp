@@ -211,6 +211,229 @@ void testNoInferenceOnUnknown() {
     std::cout << "Test passed: No spurious inference on UNKNOWN values." << std::endl;
 }
 
+// ============================================================
+// EXTENDED INFERENCE TESTS - New rules
+// ============================================================
+
+// Test: Hypothetical Syllogism - P → Q, Q → R, P is TRUE ⊢ R is TRUE
+void testHypotheticalSyllogism() {
+    std::cout << "Running testHypotheticalSyllogism..." << std::endl;
+
+    Ratiocinator rationator;
+    
+    // Create a chain: P → Q → R
+    Proposition impPQ;
+    impPQ.setPrefix("impl_PQ");
+    impPQ.setRelation(LogicalOperator::IMPLIES);
+    impPQ.setAntecedent("P");
+    impPQ.setConsequent("Q");
+    rationator.setProposition("Q", impPQ);
+    
+    Proposition impQR;
+    impQR.setPrefix("impl_QR");
+    impQR.setRelation(LogicalOperator::IMPLIES);
+    impQR.setAntecedent("Q");
+    impQR.setConsequent("R");
+    rationator.setProposition("R", impQR);
+    
+    // Set P to TRUE
+    rationator.setPropositionTruthValue("P", Tripartite::TRUE);
+    
+    // Initially Q and R should be UNKNOWN
+    assert(rationator.getPropositionTruthValue("Q") == Tripartite::UNKNOWN);
+    assert(rationator.getPropositionTruthValue("R") == Tripartite::UNKNOWN);
+    
+    // Run deduction - Hypothetical Syllogism should derive R directly from P
+    rationator.deduce();
+    
+    // Both Q and R should now be TRUE
+    assert(rationator.getPropositionTruthValue("Q") == Tripartite::TRUE);
+    assert(rationator.getPropositionTruthValue("R") == Tripartite::TRUE);
+    
+    // Verify provenance was tracked
+    const Proposition* rProp = rationator.getProposition("R");
+    assert(rProp != nullptr);
+    assert(rProp->hasProvenance());
+    
+    std::cout << "Test passed: Hypothetical Syllogism correctly chains implications." << std::endl;
+}
+
+// Test: Hypothetical Syllogism backward chaining - P → Q, Q → R, R is FALSE ⊢ P is FALSE
+void testHypotheticalSyllogismBackward() {
+    std::cout << "Running testHypotheticalSyllogismBackward..." << std::endl;
+
+    Ratiocinator rationator;
+    
+    // Create a chain: P → Q → R
+    Proposition impPQ;
+    impPQ.setPrefix("impl_PQ");
+    impPQ.setRelation(LogicalOperator::IMPLIES);
+    impPQ.setAntecedent("P");
+    impPQ.setConsequent("Q");
+    rationator.setProposition("Q", impPQ);
+    
+    Proposition impQR;
+    impQR.setPrefix("impl_QR");
+    impQR.setRelation(LogicalOperator::IMPLIES);
+    impQR.setAntecedent("Q");
+    impQR.setConsequent("R");
+    rationator.setProposition("R", impQR);
+    
+    // Set R to FALSE
+    rationator.setPropositionTruthValue("R", Tripartite::FALSE);
+    
+    // Run deduction - backward chaining should derive P is FALSE
+    rationator.deduce();
+    
+    // Both Q and P should now be FALSE
+    assert(rationator.getPropositionTruthValue("Q") == Tripartite::FALSE);
+    assert(rationator.getPropositionTruthValue("P") == Tripartite::FALSE);
+    
+    std::cout << "Test passed: Hypothetical Syllogism backward chaining works." << std::endl;
+}
+
+// Test: Disjunctive Syllogism - P ∨ Q, ¬P ⊢ Q
+void testDisjunctiveSyllogism() {
+    std::cout << "Running testDisjunctiveSyllogism..." << std::endl;
+
+    Ratiocinator rationator;
+    
+    // Create disjunction: P ∨ Q
+    Proposition disjPQ;
+    disjPQ.setPrefix("disj_PQ");
+    disjPQ.setRelation(LogicalOperator::OR);
+    disjPQ.setAntecedent("P");
+    disjPQ.setConsequent("Q");
+    rationator.setProposition("disj_PQ", disjPQ);
+    
+    // Set P to FALSE
+    rationator.setPropositionTruthValue("P", Tripartite::FALSE);
+    
+    // Initially Q should be UNKNOWN
+    assert(rationator.getPropositionTruthValue("Q") == Tripartite::UNKNOWN);
+    
+    // Run deduction - Disjunctive Syllogism should derive Q is TRUE
+    rationator.deduce();
+    
+    // Q should now be TRUE
+    assert(rationator.getPropositionTruthValue("Q") == Tripartite::TRUE);
+    
+    // Verify provenance
+    const Proposition* qProp = rationator.getProposition("Q");
+    assert(qProp != nullptr);
+    assert(qProp->hasProvenance());
+    assert(qProp->getProvenance()->ruleFired == "DisjunctiveSyllogism");
+    
+    std::cout << "Test passed: Disjunctive Syllogism correctly infers from disjunction." << std::endl;
+}
+
+// Test: Disjunctive Syllogism - P ∨ Q, ¬Q ⊢ P
+void testDisjunctiveSyllogismReverse() {
+    std::cout << "Running testDisjunctiveSyllogismReverse..." << std::endl;
+
+    Ratiocinator rationator;
+    
+    // Create disjunction: P ∨ Q
+    Proposition disjPQ;
+    disjPQ.setPrefix("disj_PQ");
+    disjPQ.setRelation(LogicalOperator::OR);
+    disjPQ.setAntecedent("P");
+    disjPQ.setConsequent("Q");
+    rationator.setProposition("disj_PQ", disjPQ);
+    
+    // Set Q to FALSE
+    rationator.setPropositionTruthValue("Q", Tripartite::FALSE);
+    
+    // Initially P should be UNKNOWN
+    assert(rationator.getPropositionTruthValue("P") == Tripartite::UNKNOWN);
+    
+    // Run deduction
+    rationator.deduce();
+    
+    // P should now be TRUE
+    assert(rationator.getPropositionTruthValue("P") == Tripartite::TRUE);
+    
+    std::cout << "Test passed: Disjunctive Syllogism works in reverse direction." << std::endl;
+}
+
+// Test: Resolution - P ∨ Q, ~P ∨ R, Q is FALSE ⊢ R is TRUE
+void testResolution() {
+    std::cout << "Running testResolution..." << std::endl;
+
+    Ratiocinator rationator;
+    
+    // Create two disjunctions with complementary literals
+    // disj1: P ∨ Q
+    Proposition disj1;
+    disj1.setPrefix("disj1");
+    disj1.setRelation(LogicalOperator::OR);
+    disj1.setAntecedent("P");
+    disj1.setConsequent("Q");
+    rationator.setProposition("disj1", disj1);
+    
+    // disj2: ~P ∨ R (using negation naming convention)
+    Proposition disj2;
+    disj2.setPrefix("disj2");
+    disj2.setRelation(LogicalOperator::OR);
+    disj2.setAntecedent("~P");
+    disj2.setConsequent("R");
+    rationator.setProposition("disj2", disj2);
+    
+    // Set Q to FALSE - by resolution, R must be TRUE
+    rationator.setPropositionTruthValue("Q", Tripartite::FALSE);
+    
+    // Run deduction
+    rationator.deduce();
+    
+    // R should now be TRUE (from resolution: Q∨R, Q=FALSE ⊢ R=TRUE)
+    assert(rationator.getPropositionTruthValue("R") == Tripartite::TRUE);
+    
+    // Verify provenance
+    const Proposition* rProp = rationator.getProposition("R");
+    assert(rProp != nullptr);
+    assert(rProp->hasProvenance());
+    assert(rProp->getProvenance()->ruleFired == "Resolution");
+    
+    std::cout << "Test passed: Resolution rule correctly derives from complementary literals." << std::endl;
+}
+
+// Test: Inference provenance tracking
+void testInferenceProvenance() {
+    std::cout << "Running testInferenceProvenance..." << std::endl;
+
+    Ratiocinator rationator;
+    
+    // Create an implication: A → B
+    Proposition impAB;
+    impAB.setPrefix("impl_AB");
+    impAB.setRelation(LogicalOperator::IMPLIES);
+    impAB.setAntecedent("A");
+    impAB.setConsequent("B");
+    rationator.setProposition("B", impAB);
+    
+    // Set A to TRUE
+    rationator.setPropositionTruthValue("A", Tripartite::TRUE);
+    
+    // Run deduction
+    rationator.deduce();
+    
+    // Verify B has provenance
+    const Proposition* bProp = rationator.getProposition("B");
+    assert(bProp != nullptr);
+    assert(bProp->getTruthValue() == Tripartite::TRUE);
+    assert(bProp->hasProvenance());
+    assert(bProp->getProvenance()->ruleFired == "ModusPonens");
+    assert(bProp->getProvenance()->premises.size() == 2);
+    // Premises should include the antecedent "A" and the implication prefix
+    bool hasAntecedent = false;
+    for (const auto& premise : bProp->getProvenance()->premises) {
+        if (premise == "A") hasAntecedent = true;
+    }
+    assert(hasAntecedent);
+    
+    std::cout << "Test passed: Inference provenance is correctly tracked." << std::endl;
+}
+
 // Main function to run all tests
 int main() {
     // Parsing tests
@@ -220,11 +443,19 @@ int main() {
     testParseDiscoveredRelation();
     testParseFactsFile();
     
-    // Inference tests (THE IMPORTANT ONES!)
+    // Basic inference tests
     testModusPonens();
     testModusTollens();
     testChainedInference();
     testNoInferenceOnUnknown();
+    
+    // Extended inference tests (new rules)
+    testHypotheticalSyllogism();
+    testHypotheticalSyllogismBackward();
+    testDisjunctiveSyllogism();
+    testDisjunctiveSyllogismReverse();
+    testResolution();
+    testInferenceProvenance();
 
     std::cout << "\n All Ratiocinator tests passed successfully!" << std::endl;
     return 0;
