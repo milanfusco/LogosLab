@@ -22,6 +22,7 @@ include_directories(${CMAKE_SOURCE_DIR}/include)
 set(LOGOSLAB_SOURCES
     ${CMAKE_SOURCE_DIR}/src/Proposition.cpp
     ${CMAKE_SOURCE_DIR}/src/Expression.cpp
+    ${CMAKE_SOURCE_DIR}/src/Lexer.cpp
     ${CMAKE_SOURCE_DIR}/src/Parser.cpp
     ${CMAKE_SOURCE_DIR}/src/InferenceEngine.cpp
     ${CMAKE_SOURCE_DIR}/src/Ratiocinator.cpp
@@ -45,10 +46,14 @@ add_executable(testRatiocinator ${CMAKE_SOURCE_DIR}/tests/testRatiocinator.cpp)
 target_link_libraries(testRatiocinator PRIVATE LogosLabLib)
 target_compile_definitions(testRatiocinator PRIVATE TEST_DATA_DIR="${CMAKE_SOURCE_DIR}")
 
+add_executable(testLexer ${CMAKE_SOURCE_DIR}/tests/testLexer.cpp)
+target_link_libraries(testLexer PRIVATE LogosLabLib)
+
 # Register tests
 add_test(NAME testProposition COMMAND testProposition)
 add_test(NAME testExpression COMMAND testExpression)
 add_test(NAME testRatiocinator COMMAND testRatiocinator)
+add_test(NAME testLexer COMMAND testLexer)
 
 # CPack configuration
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
