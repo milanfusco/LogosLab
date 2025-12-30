@@ -15,6 +15,21 @@ endif()
 include(CTest)
 enable_testing()
 
+# FetchContent for external dependencies
+include(FetchContent)
+
+# Option to enable property-based testing with RapidCheck
+option(ENABLE_PROPERTY_TESTS "Enable property-based testing with RapidCheck" ON)
+
+if(ENABLE_PROPERTY_TESTS)
+    FetchContent_Declare(
+        rapidcheck
+        GIT_REPOSITORY https://github.com/emil-e/rapidcheck.git
+        GIT_TAG        master
+    )
+    FetchContent_MakeAvailable(rapidcheck)
+endif()
+
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR}/include)
 
@@ -54,6 +69,13 @@ add_test(NAME testProposition COMMAND testProposition)
 add_test(NAME testExpression COMMAND testExpression)
 add_test(NAME testRatiocinator COMMAND testRatiocinator)
 add_test(NAME testLexer COMMAND testLexer)
+
+# Property-based tests with RapidCheck
+if(ENABLE_PROPERTY_TESTS)
+    add_executable(testExpressionProperties ${CMAKE_SOURCE_DIR}/tests/testExpressionProperties.cpp)
+    target_link_libraries(testExpressionProperties PRIVATE LogosLabLib rapidcheck)
+    add_test(NAME testExpressionProperties COMMAND testExpressionProperties)
+endif()
 
 # CPack configuration
 set(CPACK_PROJECT_NAME ${PROJECT_NAME})
