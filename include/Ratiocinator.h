@@ -6,7 +6,27 @@
 #include "InferenceEngine.h"
 #include <vector>
 #include <unordered_map>
+#include <unordered_set>
 #include <string>
+
+/**
+ * InferenceStep represents a single step in an inference trace.
+ * Used to explain how a proposition's truth value was derived.
+ */
+struct InferenceStep {
+    std::string proposition;              ///< The proposition that was derived
+    Tripartite truthValue;                ///< The truth value that was derived
+    std::string rule;                     ///< The inference rule used (e.g., "ModusPonens")
+    std::vector<std::string> premises;    ///< The premises used in this step
+    int depth;                            ///< Depth in the inference chain (0 = target)
+    
+    InferenceStep() 
+        : proposition(""), truthValue(Tripartite::UNKNOWN), rule(""), premises(), depth(0) {}
+    
+    InferenceStep(const std::string& prop, Tripartite value, 
+                  const std::string& r, const std::vector<std::string>& prem, int d)
+        : proposition(prop), truthValue(value), rule(r), premises(prem), depth(d) {}
+};
 
 /**
  * Ratiocinator - The main reasoning engine facade.
@@ -29,6 +49,12 @@ private:
     std::unordered_map<std::string, Proposition> propositions_; // Knowledge base
     std::vector<Expression> expressions_;                       // Expressions to evaluate
 
+    /// Helper for recursive inference tracing
+    void traceInferenceRecursive(const std::string& name,
+                                  std::vector<InferenceStep>& trace,
+                                  std::unordered_set<std::string>& visited,
+                                  int depth) const;
+
 public:
     Ratiocinator() = default;
     ~Ratiocinator() = default;
@@ -45,10 +71,12 @@ public:
     void deduce();
     
     /// Format all proposition truth values as a string (no side effects)
-    std::string formatResults() const;
+    /// @param includeTraces If true, includes inference traces for derived propositions
+    std::string formatResults(bool includeTraces = false) const;
 
     /// Print formatted results to stdout
-    void printResults() const;
+    /// @param includeTraces If true, includes inference traces for derived propositions
+    void printResults(bool includeTraces = false) const;
 
     // ========== Proposition Accessors ==========
     
@@ -122,6 +150,52 @@ public:
     
     /// Clear all expressions
     void clearExpressions();
+
+    // ========== Inference Tracing API ==========
+    
+    /**
+     * Trace the inference chain that led to a proposition's truth value.
+     * Walks backwards through provenance data to build an explanation.
+     * 
+     * @param name The name of the proposition to trace
+     * @return Vector of InferenceSteps from target (depth 0) to axioms (max depth)
+     */
+    std::vector<InferenceStep> traceInference(const std::string& name) const;
+    
+    /**
+     * Format an inference trace as a human-readable string.
+     * 
+     * @param name The name of the proposition to trace
+     * @return Formatted multi-line string explaining the inference chain
+     */
+    std::string formatTrace(const std::string& name) const;
+    
+    /**
+     * Check if a proposition has provenance (was derived by inference).
+     * 
+     * @param name The name of the proposition
+     * @return true if the proposition has provenance data
+     */
+    bool hasInferenceProvenance(const std::string& name) const;
+    
+    /**
+     * Print an inference trace for a proposition to stdout.
+     * 
+     * @param name The name of the proposition to trace
+     */
+    void printTrace(const std::string& name) const;
+    
+    /**
+     * Format all inference traces for derived propositions.
+     * 
+     * @return Multi-line string with all traces
+     */
+    std::string formatAllTraces() const;
+    
+    /**
+     * Print all inference traces for derived propositions to stdout.
+     */
+    void printAllTraces() const;
 };
 
 #endif // RATIOCINATOR_H

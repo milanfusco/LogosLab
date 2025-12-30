@@ -781,6 +781,204 @@ void testIncrementalWorkflow() {
     std::cout << "Test passed: Incremental workflow works correctly." << std::endl;
 }
 
+// ============================================================
+// INFERENCE TRACING TESTS
+// ============================================================
+
+// Test: traceInference returns empty for non-existent proposition
+void testTraceInferenceNonExistent() {
+    std::cout << "Running testTraceInferenceNonExistent..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    auto trace = rationator.traceInference("nonexistent");
+    assert(trace.empty());
+    
+    std::cout << "Test passed: traceInference returns empty for non-existent proposition." << std::endl;
+}
+
+// Test: traceInference for axiom (no provenance)
+void testTraceInferenceAxiom() {
+    std::cout << "Running testTraceInferenceAxiom..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Set a direct truth value (axiom)
+    rationator.setPropositionTruthValue("P", Tripartite::TRUE);
+    
+    auto trace = rationator.traceInference("P");
+    
+    assert(trace.size() == 1);
+    assert(trace[0].proposition == "P");
+    assert(trace[0].truthValue == Tripartite::TRUE);
+    assert(trace[0].rule == "Axiom");
+    assert(trace[0].depth == 0);
+    assert(trace[0].premises.empty());
+    
+    std::cout << "Test passed: traceInference correctly identifies axioms." << std::endl;
+}
+
+// Test: traceInference for single-step inference
+void testTraceInferenceSingleStep() {
+    std::cout << "Running testTraceInferenceSingleStep..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Create implication: P → Q
+    Proposition impPQ;
+    impPQ.setPrefix("imp_PQ");
+    impPQ.setRelation(LogicalOperator::IMPLIES);
+    impPQ.setAntecedent("P");
+    impPQ.setConsequent("Q");
+    rationator.setProposition("Q", impPQ);
+    
+    // Set P to TRUE
+    rationator.setPropositionTruthValue("P", Tripartite::TRUE);
+    
+    // Deduce - Q becomes TRUE via Modus Ponens
+    rationator.deduce();
+    
+    // Verify Q has provenance
+    assert(rationator.hasInferenceProvenance("Q"));
+    
+    // Trace Q
+    auto trace = rationator.traceInference("Q");
+    
+    // Should have at least 2 steps: Q and P
+    assert(trace.size() >= 2);
+    
+    // First step should be Q
+    assert(trace[0].proposition == "Q");
+    assert(trace[0].truthValue == Tripartite::TRUE);
+    assert(trace[0].rule == "ModusPonens");
+    assert(trace[0].depth == 0);
+    
+    std::cout << "Test passed: traceInference works for single-step inference." << std::endl;
+}
+
+// Test: traceInference for chained inference
+void testTraceInferenceChained() {
+    std::cout << "Running testTraceInferenceChained..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Create chain: P → Q → R
+    Proposition impPQ;
+    impPQ.setPrefix("imp_PQ");
+    impPQ.setRelation(LogicalOperator::IMPLIES);
+    impPQ.setAntecedent("P");
+    impPQ.setConsequent("Q");
+    rationator.setProposition("Q", impPQ);
+    
+    Proposition impQR;
+    impQR.setPrefix("imp_QR");
+    impQR.setRelation(LogicalOperator::IMPLIES);
+    impQR.setAntecedent("Q");
+    impQR.setConsequent("R");
+    rationator.setProposition("R", impQR);
+    
+    // Set P to TRUE
+    rationator.setPropositionTruthValue("P", Tripartite::TRUE);
+    
+    // Deduce - Q and R become TRUE
+    rationator.deduce();
+    
+    assert(rationator.getPropositionTruthValue("Q") == Tripartite::TRUE);
+    assert(rationator.getPropositionTruthValue("R") == Tripartite::TRUE);
+    
+    // Trace R - should show the chain starting from R
+    auto trace = rationator.traceInference("R");
+    
+    // Should have at least R (depth 0) and some premises traced
+    assert(trace.size() >= 1);
+    
+    // Verify R is the first step at depth 0
+    assert(trace[0].proposition == "R");
+    assert(trace[0].depth == 0);
+    assert(trace[0].truthValue == Tripartite::TRUE);
+    // R could be derived by ModusPonens or HypotheticalSyllogism depending on inference order
+    assert(trace[0].rule == "ModusPonens" || trace[0].rule == "HypotheticalSyllogism");
+    
+    // Verify the trace has increasing depths (chained inference)
+    bool foundDerivedStep = false;
+    bool foundPremiseStep = false;
+    for (const auto& step : trace) {
+        if (step.depth == 0) foundDerivedStep = true;
+        if (step.depth > 0) foundPremiseStep = true;
+    }
+    assert(foundDerivedStep);
+    
+    // If there are premises in the provenance, they should be traced
+    if (trace.size() > 1) {
+        assert(foundPremiseStep);
+    }
+    
+    std::cout << "Test passed: traceInference correctly traces chained inference." << std::endl;
+}
+
+// Test: formatTrace produces readable output
+void testFormatTrace() {
+    std::cout << "Running testFormatTrace..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Create a simple inference
+    Proposition impPQ;
+    impPQ.setPrefix("imp_PQ");
+    impPQ.setRelation(LogicalOperator::IMPLIES);
+    impPQ.setAntecedent("P");
+    impPQ.setConsequent("Q");
+    rationator.setProposition("Q", impPQ);
+    
+    rationator.setPropositionTruthValue("P", Tripartite::TRUE);
+    rationator.deduce();
+    
+    // Format the trace
+    std::string traceStr = rationator.formatTrace("Q");
+    
+    // Verify it contains expected content
+    assert(traceStr.find("Inference trace for 'Q'") != std::string::npos);
+    assert(traceStr.find("TRUE") != std::string::npos);
+    assert(traceStr.find("ModusPonens") != std::string::npos);
+    
+    // Also test formatting non-existent proposition
+    std::string emptyTrace = rationator.formatTrace("nonexistent");
+    assert(emptyTrace.find("No inference trace available") != std::string::npos);
+    
+    std::cout << "Test passed: formatTrace produces readable output." << std::endl;
+}
+
+// Test: hasInferenceProvenance
+void testHasInferenceProvenance() {
+    std::cout << "Running testHasInferenceProvenance..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Axiom has no provenance
+    rationator.setPropositionTruthValue("P", Tripartite::TRUE);
+    assert(!rationator.hasInferenceProvenance("P"));
+    
+    // Create implication for Q
+    Proposition impPQ;
+    impPQ.setPrefix("imp_PQ");
+    impPQ.setRelation(LogicalOperator::IMPLIES);
+    impPQ.setAntecedent("P");
+    impPQ.setConsequent("Q");
+    rationator.setProposition("Q", impPQ);
+    
+    // Before deduction, Q has no provenance
+    assert(!rationator.hasInferenceProvenance("Q"));
+    
+    // After deduction, Q has provenance
+    rationator.deduce();
+    assert(rationator.hasInferenceProvenance("Q"));
+    
+    // Non-existent proposition has no provenance
+    assert(!rationator.hasInferenceProvenance("nonexistent"));
+    
+    std::cout << "Test passed: hasInferenceProvenance works correctly." << std::endl;
+}
+
 // Main function to run all tests
 int main() {
     // Parsing tests
@@ -821,6 +1019,14 @@ int main() {
     testClearPropositions();
     testClearKnowledgeBase();
     testIncrementalWorkflow();
+    
+    // Inference tracing tests
+    testTraceInferenceNonExistent();
+    testTraceInferenceAxiom();
+    testTraceInferenceSingleStep();
+    testTraceInferenceChained();
+    testFormatTrace();
+    testHasInferenceProvenance();
 
     std::cout << "\n All Ratiocinator tests passed successfully!" << std::endl;
     return 0;
