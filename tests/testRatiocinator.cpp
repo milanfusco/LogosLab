@@ -979,6 +979,206 @@ void testHasInferenceProvenance() {
     std::cout << "Test passed: hasInferenceProvenance works correctly." << std::endl;
 }
 
+// ============================================================
+// RESULT FILTERING TESTS
+// ============================================================
+
+// Test: ResultFilter::matches basic filtering
+void testResultFilterMatches() {
+    std::cout << "Running testResultFilterMatches..." << std::endl;
+    
+    Proposition propTrue, propFalse, propUnknown;
+    propTrue.setTruthValue(Tripartite::TRUE);
+    propFalse.setTruthValue(Tripartite::FALSE);
+    propUnknown.setTruthValue(Tripartite::UNKNOWN);
+    
+    // Default filter matches all
+    ResultFilter defaultFilter;
+    assert(defaultFilter.matches("test", propTrue));
+    assert(defaultFilter.matches("test", propFalse));
+    assert(defaultFilter.matches("test", propUnknown));
+    
+    // TRUE only filter
+    ResultFilter trueOnly = ResultFilter::trueOnly();
+    assert(trueOnly.matches("test", propTrue));
+    assert(!trueOnly.matches("test", propFalse));
+    assert(!trueOnly.matches("test", propUnknown));
+    
+    // FALSE only filter
+    ResultFilter falseOnly = ResultFilter::falseOnly();
+    assert(!falseOnly.matches("test", propTrue));
+    assert(falseOnly.matches("test", propFalse));
+    assert(!falseOnly.matches("test", propUnknown));
+    
+    // Known only filter
+    ResultFilter knownOnly = ResultFilter::knownOnly();
+    assert(knownOnly.matches("test", propTrue));
+    assert(knownOnly.matches("test", propFalse));
+    assert(!knownOnly.matches("test", propUnknown));
+    
+    std::cout << "Test passed: ResultFilter::matches works correctly." << std::endl;
+}
+
+// Test: ResultFilter prefix pattern
+void testResultFilterPrefix() {
+    std::cout << "Running testResultFilterPrefix..." << std::endl;
+    
+    Proposition prop;
+    prop.setTruthValue(Tripartite::TRUE);
+    
+    ResultFilter filter;
+    filter.prefixPattern = "user_";
+    
+    assert(filter.matches("user_name", prop));
+    assert(filter.matches("user_id", prop));
+    assert(!filter.matches("admin_name", prop));
+    assert(!filter.matches("name", prop));
+    
+    std::cout << "Test passed: ResultFilter prefix pattern works correctly." << std::endl;
+}
+
+// Test: ResultFilter contains pattern
+void testResultFilterContains() {
+    std::cout << "Running testResultFilterContains..." << std::endl;
+    
+    Proposition prop;
+    prop.setTruthValue(Tripartite::TRUE);
+    
+    ResultFilter filter;
+    filter.containsPattern = "data";
+    
+    assert(filter.matches("user_data", prop));
+    assert(filter.matches("data_store", prop));
+    assert(filter.matches("mydatabase", prop));
+    assert(!filter.matches("user_info", prop));
+    
+    std::cout << "Test passed: ResultFilter contains pattern works correctly." << std::endl;
+}
+
+// Test: ResultFilter derivation filtering
+void testResultFilterDerivation() {
+    std::cout << "Running testResultFilterDerivation..." << std::endl;
+    
+    Proposition axiom, derived;
+    axiom.setTruthValue(Tripartite::TRUE);
+    derived.setTruthValue(Tripartite::TRUE, InferenceProvenance("TestRule", {"premise"}));
+    
+    // Derived only
+    ResultFilter derivedOnly;
+    derivedOnly.showDerived = true;
+    derivedOnly.showAxioms = false;
+    assert(!derivedOnly.matches("axiom", axiom));
+    assert(derivedOnly.matches("derived", derived));
+    
+    // Axioms only
+    ResultFilter axiomsOnly;
+    axiomsOnly.showDerived = false;
+    axiomsOnly.showAxioms = true;
+    assert(axiomsOnly.matches("axiom", axiom));
+    assert(!axiomsOnly.matches("derived", derived));
+    
+    std::cout << "Test passed: ResultFilter derivation filtering works correctly." << std::endl;
+}
+
+// Test: getFilteredPropositionNames
+void testGetFilteredPropositionNames() {
+    std::cout << "Running testGetFilteredPropositionNames..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Set up propositions
+    rationator.setPropositionTruthValue("alpha", Tripartite::TRUE);
+    rationator.setPropositionTruthValue("beta", Tripartite::FALSE);
+    rationator.setPropositionTruthValue("gamma", Tripartite::UNKNOWN);
+    rationator.setPropositionTruthValue("user_delta", Tripartite::TRUE);
+    
+    // Test TRUE only filter
+    auto trueNames = rationator.getFilteredPropositionNames(ResultFilter::trueOnly());
+    assert(trueNames.size() == 2);  // alpha and user_delta
+    
+    // Test prefix filter
+    ResultFilter prefixFilter;
+    prefixFilter.prefixPattern = "user_";
+    auto prefixNames = rationator.getFilteredPropositionNames(prefixFilter);
+    assert(prefixNames.size() == 1);
+    assert(prefixNames[0] == "user_delta");
+    
+    // Test limit
+    ResultFilter limitFilter;
+    limitFilter.limit = 2;
+    auto limitedNames = rationator.getFilteredPropositionNames(limitFilter);
+    assert(limitedNames.size() == 2);
+    
+    std::cout << "Test passed: getFilteredPropositionNames works correctly." << std::endl;
+}
+
+// Test: formatResults with filter
+void testFormatResultsWithFilter() {
+    std::cout << "Running testFormatResultsWithFilter..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Set up a chain: P -> Q -> R
+    Proposition impPQ;
+    impPQ.setPrefix("imp_PQ");
+    impPQ.setRelation(LogicalOperator::IMPLIES);
+    impPQ.setAntecedent("P");
+    impPQ.setConsequent("Q");
+    rationator.setProposition("Q", impPQ);
+    
+    Proposition impQR;
+    impQR.setPrefix("imp_QR");
+    impQR.setRelation(LogicalOperator::IMPLIES);
+    impQR.setAntecedent("Q");
+    impQR.setConsequent("R");
+    rationator.setProposition("R", impQR);
+    
+    rationator.setPropositionTruthValue("P", Tripartite::TRUE);
+    rationator.setPropositionTruthValue("X", Tripartite::FALSE);
+    rationator.setPropositionTruthValue("Y", Tripartite::UNKNOWN);
+    
+    rationator.deduce();
+    
+    // Test derived only filter
+    ResultFilter derivedFilter;
+    derivedFilter.derivedOnly();
+    std::string derivedResults = rationator.formatResults(derivedFilter);
+    assert(derivedResults.find("derived only") != std::string::npos);
+    assert(derivedResults.find("Q:") != std::string::npos || 
+           derivedResults.find("R:") != std::string::npos);
+    
+    // Test with traces
+    ResultFilter tracesFilter;
+    tracesFilter.withTraces().derivedOnly();
+    std::string tracesResults = rationator.formatResults(tracesFilter);
+    assert(tracesResults.find("Inference Traces") != std::string::npos);
+    
+    std::cout << "Test passed: formatResults with filter works correctly." << std::endl;
+}
+
+// Test: Fluent filter API
+void testFluentFilterAPI() {
+    std::cout << "Running testFluentFilterAPI..." << std::endl;
+    
+    // Test fluent builder pattern
+    ResultFilter filter = ResultFilter()
+        .withTruthValues(true, false, false)
+        .withPrefix("test_")
+        .withLimit(10)
+        .withSort(ResultSortOrder::ALPHABETICAL)
+        .withTraces();
+    
+    assert(filter.showTrue == true);
+    assert(filter.showFalse == false);
+    assert(filter.showUnknown == false);
+    assert(filter.prefixPattern == "test_");
+    assert(filter.limit == 10);
+    assert(filter.sortOrder == ResultSortOrder::ALPHABETICAL);
+    assert(filter.includeTraces == true);
+    
+    std::cout << "Test passed: Fluent filter API works correctly." << std::endl;
+}
+
 // Main function to run all tests
 int main() {
     // Parsing tests
@@ -1027,6 +1227,15 @@ int main() {
     testTraceInferenceChained();
     testFormatTrace();
     testHasInferenceProvenance();
+    
+    // Result filtering tests
+    testResultFilterMatches();
+    testResultFilterPrefix();
+    testResultFilterContains();
+    testResultFilterDerivation();
+    testGetFilteredPropositionNames();
+    testFormatResultsWithFilter();
+    testFluentFilterAPI();
 
     std::cout << "\n All Ratiocinator tests passed successfully!" << std::endl;
     return 0;

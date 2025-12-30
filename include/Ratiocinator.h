@@ -8,6 +8,119 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <string>
+#include <functional>
+
+/**
+ * Sorting options for result output.
+ */
+enum class ResultSortOrder {
+    NONE,           ///< No sorting (hash map order)
+    ALPHABETICAL,   ///< Sort by proposition name A-Z
+    ALPHABETICAL_DESC, ///< Sort by proposition name Z-A
+    BY_TRUTH_VALUE, ///< Group by truth value (TRUE, FALSE, UNKNOWN)
+    BY_DERIVATION   ///< Group by derivation (derived first, then axioms)
+};
+
+/**
+ * Filter criteria for result output.
+ * Use to limit and organize output from formatResults().
+ * 
+ * Example usage:
+ *   ResultFilter filter;
+ *   filter.showTrue = true;
+ *   filter.showFalse = false;
+ *   filter.showUnknown = false;
+ *   filter.prefixPattern = "user_";
+ *   std::string results = engine.formatResults(filter);
+ */
+struct ResultFilter {
+    // Truth value filters (default: show all)
+    bool showTrue = true;       ///< Include propositions with TRUE value
+    bool showFalse = true;      ///< Include propositions with FALSE value
+    bool showUnknown = true;    ///< Include propositions with UNKNOWN value
+    
+    // Derivation filters
+    bool showDerived = true;    ///< Include propositions derived by inference
+    bool showAxioms = true;     ///< Include axioms (direct assertions)
+    
+    // Name filters
+    std::string prefixPattern;  ///< Only include names starting with this prefix (empty = all)
+    std::string containsPattern; ///< Only include names containing this substring (empty = all)
+    
+    // Output options
+    ResultSortOrder sortOrder = ResultSortOrder::ALPHABETICAL;
+    size_t limit = 0;           ///< Max results to return (0 = unlimited)
+    bool includeTraces = false; ///< Include inference traces in output
+    bool showProvenance = true; ///< Show "[derived via X]" annotations
+    
+    // Custom filter function (optional)
+    std::function<bool(const std::string&, const Proposition&)> customFilter;
+    
+    /// Check if a proposition passes all filters
+    bool matches(const std::string& name, const Proposition& prop) const;
+    
+    // Builder-style setters for fluent API
+    ResultFilter& withTruthValues(bool t, bool f, bool u) {
+        showTrue = t; showFalse = f; showUnknown = u;
+        return *this;
+    }
+    ResultFilter& withPrefix(const std::string& prefix) {
+        prefixPattern = prefix;
+        return *this;
+    }
+    ResultFilter& withContains(const std::string& pattern) {
+        containsPattern = pattern;
+        return *this;
+    }
+    ResultFilter& withLimit(size_t n) {
+        limit = n;
+        return *this;
+    }
+    ResultFilter& withSort(ResultSortOrder order) {
+        sortOrder = order;
+        return *this;
+    }
+    ResultFilter& withTraces(bool traces = true) {
+        includeTraces = traces;
+        return *this;
+    }
+    ResultFilter& derivedOnly() {
+        showDerived = true; showAxioms = false;
+        return *this;
+    }
+    ResultFilter& axiomsOnly() {
+        showDerived = false; showAxioms = true;
+        return *this;
+    }
+    
+    /// Create a filter that only shows TRUE propositions
+    static ResultFilter trueOnly() {
+        ResultFilter f;
+        f.showTrue = true; f.showFalse = false; f.showUnknown = false;
+        return f;
+    }
+    
+    /// Create a filter that only shows FALSE propositions
+    static ResultFilter falseOnly() {
+        ResultFilter f;
+        f.showTrue = false; f.showFalse = true; f.showUnknown = false;
+        return f;
+    }
+    
+    /// Create a filter that only shows known (TRUE or FALSE) propositions
+    static ResultFilter knownOnly() {
+        ResultFilter f;
+        f.showTrue = true; f.showFalse = true; f.showUnknown = false;
+        return f;
+    }
+    
+    /// Create a filter that only shows UNKNOWN propositions
+    static ResultFilter unknownOnly() {
+        ResultFilter f;
+        f.showTrue = false; f.showFalse = false; f.showUnknown = true;
+        return f;
+    }
+};
 
 /**
  * InferenceStep represents a single step in an inference trace.
@@ -73,10 +186,24 @@ public:
     /// Format all proposition truth values as a string (no side effects)
     /// @param includeTraces If true, includes inference traces for derived propositions
     std::string formatResults(bool includeTraces = false) const;
+    
+    /// Format proposition truth values with filtering and sorting
+    /// @param filter Filter criteria for selecting and ordering results
+    /// @return Formatted string with filtered results
+    std::string formatResults(const ResultFilter& filter) const;
 
     /// Print formatted results to stdout
     /// @param includeTraces If true, includes inference traces for derived propositions
     void printResults(bool includeTraces = false) const;
+    
+    /// Print filtered results to stdout
+    /// @param filter Filter criteria for selecting and ordering results
+    void printResults(const ResultFilter& filter) const;
+    
+    /// Get filtered list of proposition names
+    /// @param filter Filter criteria
+    /// @return Vector of proposition names matching the filter
+    std::vector<std::string> getFilteredPropositionNames(const ResultFilter& filter) const;
 
     // ========== Proposition Accessors ==========
     

@@ -3,6 +3,43 @@
 #include "Proposition.h"
 #include <iostream>
 #include <sstream>
+#include <algorithm>
+
+// ========== ResultFilter Implementation ==========
+
+bool ResultFilter::matches(const std::string& name, const Proposition& prop) const {
+    // Check truth value filter
+    Tripartite value = prop.getTruthValue();
+    if (value == Tripartite::TRUE && !showTrue) return false;
+    if (value == Tripartite::FALSE && !showFalse) return false;
+    if (value == Tripartite::UNKNOWN && !showUnknown) return false;
+    
+    // Check derivation filter
+    bool isDerived = prop.hasProvenance();
+    if (isDerived && !showDerived) return false;
+    if (!isDerived && !showAxioms) return false;
+    
+    // Check prefix pattern
+    if (!prefixPattern.empty()) {
+        if (name.substr(0, prefixPattern.length()) != prefixPattern) {
+            return false;
+        }
+    }
+    
+    // Check contains pattern
+    if (!containsPattern.empty()) {
+        if (name.find(containsPattern) == std::string::npos) {
+            return false;
+        }
+    }
+    
+    // Check custom filter
+    if (customFilter && !customFilter(name, prop)) {
+        return false;
+    }
+    
+    return true;
+}
 
 // ========== Facade Methods (Primary API) ==========
 
@@ -60,6 +97,146 @@ std::string Ratiocinator::formatResults(bool includeTraces) const {
 
 void Ratiocinator::printResults(bool includeTraces) const {
     std::cout << formatResults(includeTraces);
+}
+
+std::vector<std::string> Ratiocinator::getFilteredPropositionNames(const ResultFilter& filter) const {
+    std::vector<std::string> names;
+    
+    // Collect matching names
+    for (const auto& entry : propositions_) {
+        if (filter.matches(entry.first, entry.second)) {
+            names.push_back(entry.first);
+        }
+    }
+    
+    // Apply sorting
+    switch (filter.sortOrder) {
+        case ResultSortOrder::ALPHABETICAL:
+            std::sort(names.begin(), names.end());
+            break;
+        case ResultSortOrder::ALPHABETICAL_DESC:
+            std::sort(names.begin(), names.end(), std::greater<std::string>());
+            break;
+        case ResultSortOrder::BY_TRUTH_VALUE:
+            std::sort(names.begin(), names.end(), 
+                [this](const std::string& a, const std::string& b) {
+                    auto itA = propositions_.find(a);
+                    auto itB = propositions_.find(b);
+                    if (itA == propositions_.end() || itB == propositions_.end()) return false;
+                    int valA = static_cast<int>(itA->second.getTruthValue());
+                    int valB = static_cast<int>(itB->second.getTruthValue());
+                    if (valA != valB) return valA < valB;
+                    return a < b;  // Secondary sort by name
+                });
+            break;
+        case ResultSortOrder::BY_DERIVATION:
+            std::sort(names.begin(), names.end(),
+                [this](const std::string& a, const std::string& b) {
+                    auto itA = propositions_.find(a);
+                    auto itB = propositions_.find(b);
+                    if (itA == propositions_.end() || itB == propositions_.end()) return false;
+                    bool derivedA = itA->second.hasProvenance();
+                    bool derivedB = itB->second.hasProvenance();
+                    if (derivedA != derivedB) return derivedA > derivedB;  // Derived first
+                    return a < b;  // Secondary sort by name
+                });
+            break;
+        case ResultSortOrder::NONE:
+        default:
+            break;
+    }
+    
+    // Apply limit
+    if (filter.limit > 0 && names.size() > filter.limit) {
+        names.resize(filter.limit);
+    }
+    
+    return names;
+}
+
+std::string Ratiocinator::formatResults(const ResultFilter& filter) const {
+    std::ostringstream oss;
+    
+    // Get filtered and sorted names
+    std::vector<std::string> names = getFilteredPropositionNames(filter);
+    
+    // Header with filter info
+    oss << "=== Proposition Truth Values ===\n";
+    
+    // Show filter summary if any filtering is active
+    bool hasFilter = !filter.showTrue || !filter.showFalse || !filter.showUnknown ||
+                     !filter.showDerived || !filter.showAxioms ||
+                     !filter.prefixPattern.empty() || !filter.containsPattern.empty() ||
+                     filter.limit > 0;
+    
+    if (hasFilter) {
+        oss << "(Filtered: ";
+        std::vector<std::string> filterDesc;
+        
+        if (!filter.showTrue || !filter.showFalse || !filter.showUnknown) {
+            std::string truthFilter;
+            if (filter.showTrue) truthFilter += "TRUE ";
+            if (filter.showFalse) truthFilter += "FALSE ";
+            if (filter.showUnknown) truthFilter += "UNKNOWN ";
+            filterDesc.push_back("values=" + truthFilter);
+        }
+        if (!filter.showDerived) filterDesc.push_back("axioms only");
+        if (!filter.showAxioms) filterDesc.push_back("derived only");
+        if (!filter.prefixPattern.empty()) filterDesc.push_back("prefix='" + filter.prefixPattern + "'");
+        if (!filter.containsPattern.empty()) filterDesc.push_back("contains='" + filter.containsPattern + "'");
+        if (filter.limit > 0) filterDesc.push_back("limit=" + std::to_string(filter.limit));
+        
+        for (size_t i = 0; i < filterDesc.size(); ++i) {
+            if (i > 0) oss << ", ";
+            oss << filterDesc[i];
+        }
+        oss << ")\n";
+    }
+    
+    oss << "Showing " << names.size() << " of " << propositions_.size() << " propositions\n\n";
+    
+    // Format each matching proposition
+    for (const auto& name : names) {
+        auto it = propositions_.find(name);
+        if (it == propositions_.end()) continue;
+        
+        const Proposition& prop = it->second;
+        
+        oss << name << ": ";
+        switch (prop.getTruthValue()) {
+            case Tripartite::TRUE:    oss << "True"; break;
+            case Tripartite::FALSE:   oss << "False"; break;
+            case Tripartite::UNKNOWN: oss << "Unknown"; break;
+        }
+        
+        // Add provenance indicator if enabled
+        if (filter.showProvenance && prop.hasProvenance()) {
+            oss << " [derived via " << prop.getProvenance()->ruleFired << "]";
+        }
+        oss << "\n";
+    }
+    
+    // Add traces if requested
+    if (filter.includeTraces) {
+        oss << "\n=== Inference Traces ===\n";
+        bool hasTraces = false;
+        for (const auto& name : names) {
+            auto it = propositions_.find(name);
+            if (it != propositions_.end() && it->second.hasProvenance()) {
+                oss << formatTrace(name) << "\n";
+                hasTraces = true;
+            }
+        }
+        if (!hasTraces) {
+            oss << "No derived propositions in filtered results.\n";
+        }
+    }
+    
+    return oss.str();
+}
+
+void Ratiocinator::printResults(const ResultFilter& filter) const {
+    std::cout << formatResults(filter);
 }
 
 // ========== Proposition Accessors ==========
