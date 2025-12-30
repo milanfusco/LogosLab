@@ -597,6 +597,190 @@ void testExpressionsInDeduction() {
     std::cout << "Test passed: Expressions are used during deduction." << std::endl;
 }
 
+// ============================================================
+// INCREMENTAL API TESTS
+// ============================================================
+
+// Test: addProposition only adds if not exists
+void testAddProposition() {
+    std::cout << "Running testAddProposition..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Create a proposition
+    Proposition prop1;
+    prop1.setPrefix("test1");
+    prop1.setTruthValue(Tripartite::TRUE);
+    
+    // Add should succeed the first time
+    bool added = rationator.addProposition("test1", prop1);
+    assert(added);
+    assert(rationator.hasProposition("test1"));
+    assert(rationator.getPropositionCount() == 1);
+    
+    // Add with same name should fail
+    Proposition prop2;
+    prop2.setPrefix("test1");
+    prop2.setTruthValue(Tripartite::FALSE);
+    
+    added = rationator.addProposition("test1", prop2);
+    assert(!added);  // Should fail - already exists
+    
+    // Original value should be preserved
+    assert(rationator.getPropositionTruthValue("test1") == Tripartite::TRUE);
+    
+    std::cout << "Test passed: addProposition correctly prevents duplicates." << std::endl;
+}
+
+// Test: removeProposition
+void testRemoveProposition() {
+    std::cout << "Running testRemoveProposition..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Add some propositions
+    rationator.setPropositionTruthValue("A", Tripartite::TRUE);
+    rationator.setPropositionTruthValue("B", Tripartite::FALSE);
+    rationator.setPropositionTruthValue("C", Tripartite::UNKNOWN);
+    
+    assert(rationator.getPropositionCount() == 3);
+    
+    // Remove B
+    bool removed = rationator.removeProposition("B");
+    assert(removed);
+    assert(!rationator.hasProposition("B"));
+    assert(rationator.getPropositionCount() == 2);
+    
+    // Try to remove non-existent proposition
+    removed = rationator.removeProposition("D");
+    assert(!removed);
+    
+    // A and C should still exist
+    assert(rationator.hasProposition("A"));
+    assert(rationator.hasProposition("C"));
+    
+    std::cout << "Test passed: removeProposition works correctly." << std::endl;
+}
+
+// Test: updatePropositionTruthValue with provenance
+void testUpdatePropositionTruthValue() {
+    std::cout << "Running testUpdatePropositionTruthValue..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Add a proposition
+    rationator.setPropositionTruthValue("X", Tripartite::TRUE);
+    
+    // Update with provenance
+    InferenceProvenance prov("TestUpdate", {"source1", "source2"});
+    bool updated = rationator.updatePropositionTruthValue("X", Tripartite::FALSE, prov);
+    assert(updated);
+    
+    // Verify the update
+    assert(rationator.getPropositionTruthValue("X") == Tripartite::FALSE);
+    
+    // Verify provenance was set
+    const Proposition* prop = rationator.getProposition("X");
+    assert(prop != nullptr);
+    assert(prop->hasProvenance());
+    assert(prop->getProvenance()->ruleFired == "TestUpdate");
+    
+    // Try to update non-existent proposition
+    updated = rationator.updatePropositionTruthValue("Y", Tripartite::TRUE, prov);
+    assert(!updated);
+    
+    std::cout << "Test passed: updatePropositionTruthValue with provenance works correctly." << std::endl;
+}
+
+// Test: clearPropositions
+void testClearPropositions() {
+    std::cout << "Running testClearPropositions..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Add some propositions
+    rationator.setPropositionTruthValue("A", Tripartite::TRUE);
+    rationator.setPropositionTruthValue("B", Tripartite::FALSE);
+    
+    // Add an expression
+    rationator.addExpressionFromString("A && B", "test");
+    
+    assert(rationator.getPropositionCount() == 2);
+    assert(rationator.getExpressionCount() == 1);
+    
+    // Clear only propositions
+    rationator.clearPropositions();
+    
+    assert(rationator.getPropositionCount() == 0);
+    assert(rationator.getExpressionCount() == 1);  // Expressions preserved
+    
+    std::cout << "Test passed: clearPropositions only clears propositions." << std::endl;
+}
+
+// Test: clearKnowledgeBase
+void testClearKnowledgeBase() {
+    std::cout << "Running testClearKnowledgeBase..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Add some propositions and expressions
+    rationator.setPropositionTruthValue("A", Tripartite::TRUE);
+    rationator.setPropositionTruthValue("B", Tripartite::FALSE);
+    rationator.addExpressionFromString("A && B", "test");
+    
+    assert(rationator.getPropositionCount() == 2);
+    assert(rationator.getExpressionCount() == 1);
+    
+    // Clear everything
+    rationator.clearKnowledgeBase();
+    
+    assert(rationator.getPropositionCount() == 0);
+    assert(rationator.getExpressionCount() == 0);
+    
+    std::cout << "Test passed: clearKnowledgeBase clears everything." << std::endl;
+}
+
+// Test: Incremental workflow (add, deduce, update, deduce again)
+void testIncrementalWorkflow() {
+    std::cout << "Running testIncrementalWorkflow..." << std::endl;
+    
+    Ratiocinator rationator;
+    
+    // Step 1: Set up initial knowledge
+    Proposition impAB;
+    impAB.setPrefix("imp_AB");
+    impAB.setRelation(LogicalOperator::IMPLIES);
+    impAB.setAntecedent("A");
+    impAB.setConsequent("B");
+    rationator.addProposition("B", impAB);
+    
+    rationator.setPropositionTruthValue("A", Tripartite::TRUE);
+    
+    // Step 2: First deduction
+    rationator.deduce();
+    assert(rationator.getPropositionTruthValue("B") == Tripartite::TRUE);
+    
+    // Step 3: Add new knowledge incrementally
+    Proposition impBC;
+    impBC.setPrefix("imp_BC");
+    impBC.setRelation(LogicalOperator::IMPLIES);
+    impBC.setAntecedent("B");
+    impBC.setConsequent("C");
+    rationator.addProposition("C", impBC);
+    
+    // Step 4: Deduce again with new knowledge
+    rationator.deduce();
+    assert(rationator.getPropositionTruthValue("C") == Tripartite::TRUE);
+    
+    // Step 5: Remove a proposition and re-test
+    // Note: B's truth was derived, removing it doesn't unset it
+    // but we can verify removal works
+    assert(rationator.removeProposition("C"));
+    assert(!rationator.hasProposition("C"));
+    
+    std::cout << "Test passed: Incremental workflow works correctly." << std::endl;
+}
+
 // Main function to run all tests
 int main() {
     // Parsing tests
@@ -629,6 +813,14 @@ int main() {
     testExpressionsFromFacts();
     testAddExpressionFromString();
     testExpressionsInDeduction();
+    
+    // Incremental API tests
+    testAddProposition();
+    testRemoveProposition();
+    testUpdatePropositionTruthValue();
+    testClearPropositions();
+    testClearKnowledgeBase();
+    testIncrementalWorkflow();
 
     std::cout << "\n All Ratiocinator tests passed successfully!" << std::endl;
     return 0;

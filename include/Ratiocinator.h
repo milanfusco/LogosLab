@@ -52,13 +52,58 @@ public:
 
     // ========== Proposition Accessors ==========
     
+    /// Set or update a proposition (creates if doesn't exist)
     void setProposition(const std::string& name, const Proposition& prop);
+    
+    /// Get a proposition by name (returns nullptr if not found)
     const Proposition* getProposition(const std::string& name) const;
     Proposition* getProposition(const std::string& name);
+    
+    /// Check if a proposition exists
     bool hasProposition(const std::string& name) const;
+    
+    /// Set the truth value of a proposition (creates if doesn't exist)
     void setPropositionTruthValue(const std::string& name, Tripartite value);
+    
+    /// Get the truth value of a proposition (returns UNKNOWN if not found)
     Tripartite getPropositionTruthValue(const std::string& name) const;
+    
+    /// Get all propositions
     const std::unordered_map<std::string, Proposition>& getPropositions() const;
+
+    // ========== Incremental Update API ==========
+    
+    /// Add a new proposition (returns false if already exists)
+    /// @param name The name/key for the proposition
+    /// @param prop The proposition to add
+    /// @return true if added, false if a proposition with that name already exists
+    bool addProposition(const std::string& name, const Proposition& prop);
+    
+    /// Remove a proposition by name
+    /// @param name The name of the proposition to remove
+    /// @return true if removed, false if not found
+    bool removeProposition(const std::string& name);
+    
+    /// Update the truth value of an existing proposition with provenance
+    /// @param name The name of the proposition to update
+    /// @param value The new truth value
+    /// @param provenance Optional provenance information for tracking
+    /// @return true if updated, false if proposition not found
+    bool updatePropositionTruthValue(const std::string& name, 
+                                     Tripartite value,
+                                     const InferenceProvenance& provenance);
+    
+    /// Clear all propositions from the knowledge base
+    void clearPropositions();
+    
+    /// Clear the entire knowledge base (propositions and expressions)
+    void clearKnowledgeBase();
+    
+    /// Get the number of propositions in the knowledge base
+    size_t getPropositionCount() const;
+    
+    /// Get the number of expressions in the knowledge base
+    size_t getExpressionCount() const;
 
     // ========== Expression Accessors ==========
     

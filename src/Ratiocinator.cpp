@@ -83,6 +83,54 @@ const std::unordered_map<std::string, Proposition>& Ratiocinator::getProposition
     return propositions_;
 }
 
+// ========== Incremental Update API ==========
+
+bool Ratiocinator::addProposition(const std::string& name, const Proposition& prop) {
+    // Only add if it doesn't already exist
+    if (hasProposition(name)) {
+        return false;
+    }
+    propositions_[name] = prop;
+    return true;
+}
+
+bool Ratiocinator::removeProposition(const std::string& name) {
+    auto it = propositions_.find(name);
+    if (it == propositions_.end()) {
+        return false;
+    }
+    propositions_.erase(it);
+    return true;
+}
+
+bool Ratiocinator::updatePropositionTruthValue(const std::string& name,
+                                                Tripartite value,
+                                                const InferenceProvenance& provenance) {
+    auto it = propositions_.find(name);
+    if (it == propositions_.end()) {
+        return false;
+    }
+    it->second.setTruthValue(value, provenance);
+    return true;
+}
+
+void Ratiocinator::clearPropositions() {
+    propositions_.clear();
+}
+
+void Ratiocinator::clearKnowledgeBase() {
+    propositions_.clear();
+    expressions_.clear();
+}
+
+size_t Ratiocinator::getPropositionCount() const {
+    return propositions_.size();
+}
+
+size_t Ratiocinator::getExpressionCount() const {
+    return expressions_.size();
+}
+
 // ========== Expression Accessors ==========
 
 void Ratiocinator::addExpression(const Expression& expr) {
