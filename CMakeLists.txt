@@ -21,6 +21,9 @@ include(FetchContent)
 # Option to enable property-based testing with RapidCheck
 option(ENABLE_PROPERTY_TESTS "Enable property-based testing with RapidCheck" ON)
 
+# Option to enable benchmarking with Google Benchmark
+option(ENABLE_BENCHMARKS "Enable benchmarking with Google Benchmark" ON)
+
 if(ENABLE_PROPERTY_TESTS)
     FetchContent_Declare(
         rapidcheck
@@ -28,6 +31,19 @@ if(ENABLE_PROPERTY_TESTS)
         GIT_TAG        master
     )
     FetchContent_MakeAvailable(rapidcheck)
+endif()
+
+if(ENABLE_BENCHMARKS)
+    # Disable Google Benchmark tests to speed up build
+    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+    
+    FetchContent_Declare(
+        benchmark
+        GIT_REPOSITORY https://github.com/google/benchmark.git
+        GIT_TAG        v1.8.3
+    )
+    FetchContent_MakeAvailable(benchmark)
 endif()
 
 # Include directories
@@ -75,6 +91,16 @@ if(ENABLE_PROPERTY_TESTS)
     add_executable(testExpressionProperties ${CMAKE_SOURCE_DIR}/tests/testExpressionProperties.cpp)
     target_link_libraries(testExpressionProperties PRIVATE LogosLabLib rapidcheck)
     add_test(NAME testExpressionProperties COMMAND testExpressionProperties)
+endif()
+
+# Benchmarks with Google Benchmark
+if(ENABLE_BENCHMARKS)
+    add_executable(benchmarkInference ${CMAKE_SOURCE_DIR}/benchmarks/benchmarkInference.cpp)
+    target_link_libraries(benchmarkInference PRIVATE LogosLabLib benchmark::benchmark)
+    
+    # Optional: Add benchmark as a test (runs with --benchmark_min_time=0.01)
+    add_test(NAME benchmarkInference 
+             COMMAND benchmarkInference --benchmark_min_time=0.01 --benchmark_format=console)
 endif()
 
 # CPack configuration
