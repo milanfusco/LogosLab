@@ -1,0 +1,56 @@
+-----------------------------------------------------------------------
+Benchmark                             Time             CPU   Iterations
+-----------------------------------------------------------------------
+BM_ModusPonens_Single              3934 ns         3930 ns       177931
+BM_ModusPonens_Chain/2             7966 ns         7950 ns        88068
+BM_ModusPonens_Chain/8            60308 ns        57233 ns        12886
+BM_ModusPonens_Chain/64         2991283 ns      2980864 ns          236
+BM_ModusPonens_Chain_BigO        730.35 N^2      727.79 N^2  
+BM_ModusPonens_Chain_RMS              1 %             1 %    
+BM_ModusTollens_Single             4050 ns         4011 ns       169584
+BM_ModusTollens_Chain/2            8016 ns         7840 ns        88705
+BM_ModusTollens_Chain/8           33202 ns        33095 ns        21241
+BM_ModusTollens_Chain/64        2167606 ns      2154982 ns          326
+BM_ModusTollens_Chain_BigO       529.20 N^2      526.12 N^2  
+BM_ModusTollens_Chain_RMS             0 %             0 %    
+BM_HypotheticalSyllogism           7858 ns         7840 ns        88583
+BM_DisjunctiveSyllogism            4833 ns         4817 ns       146109
+BM_Expression_SimpleBinary         3151 ns         3140 ns       221727
+BM_Expression_Nested               6819 ns         6803 ns       103754
+BM_Expression_NOperands/2          3121 ns         3113 ns       223299
+BM_Expression_NOperands/8          8995 ns         8980 ns        78335
+BM_Expression_NOperands/64        57044 ns        56969 ns        12316
+BM_Expression_NOperands/128      110214 ns       109993 ns         6378
+BM_Expression_NOperands_BigO     868.04 N        866.42 N    
+BM_Expression_NOperands_RMS           3 %             3 %    
+BM_Lexer_Simple                    1868 ns         1865 ns       375645
+BM_Lexer_Complex                   5010 ns         5004 ns       138999
+BM_Lexer_Size/2                    1336 ns         1333 ns       522443
+BM_Lexer_Size/8                    5417 ns         5105 ns       142774
+BM_Lexer_Size/64                  39050 ns        38980 ns        17933
+BM_Lexer_Size/256                160040 ns       159795 ns         4395
+BM_Lexer_Size_BigO               624.32 N        623.33 N    
+BM_Lexer_Size_RMS                     1 %             1 %    
+BM_DeduceAll_Size/4                6942 ns         6931 ns       100497
+BM_DeduceAll_Size/8               22176 ns        22149 ns        31540
+BM_DeduceAll_Size/64            1492345 ns      1489484 ns          469
+BM_DeduceAll_Size/256          63308208 ns     63100545 ns           11
+BM_DeduceAll_Size_BigO             3.77 N^3        3.76 N^3  
+BM_DeduceAll_Size_RMS                 2 %             2 %    
+BM_Ratiocinator_Workflow/4        14866 ns        14852 ns        47234
+BM_Ratiocinator_Workflow/8        51117 ns        51001 ns        13802
+BM_Ratiocinator_Workflow/64     2905474 ns      2898138 ns          240
+BM_Ratiocinator_Workflow/128   17254511 ns     17214829 ns           41
+BM_Ratiocinator_Workflow_BigO       8.27 N^3        8.25 N^3  
+BM_Ratiocinator_Workflow_RMS          7 %             7 %    
+BM_TraceInference/2                2721 ns         2716 ns       257084
+BM_TraceInference/8               10718 ns        10695 ns        65320
+BM_TraceInference/64              71843 ns        71593 ns         9896
+BM_TraceInference_BigO          1126.12 N       1122.23 N    
+BM_TraceInference_RMS                 4 %             4 %    
+BM_ResultFiltering/10              3566 ns         3376 ns       218345
+BM_ResultFiltering/64             19478 ns        19452 ns        35547
+BM_ResultFiltering/512           145428 ns       145200 ns         4816
+BM_ResultFiltering/1000          287170 ns       286593 ns         2442
+BM_ResultFiltering_BigO          286.58 N        286.03 N    
+BM_ResultFiltering_RMS                1 %             1 %    
