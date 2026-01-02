@@ -1,4 +1,5 @@
 #include "Proposition.h"
+
 #include <iostream>
 
 //***  Tripartite Operators ***//
@@ -100,7 +101,21 @@ void Proposition::setPredicate(const std::string& predicateToSet) {
   predicate = predicateToSet;
 }
 void Proposition::setTruthValue(Tripartite valueToSet) {
+  // Simple setter without provenance - used for direct assignments
   truth_value = valueToSet;
+  provenance_.reset();  // Clear provenance when set without tracking
+}
+
+void Proposition::setTruthValue(Tripartite valueToSet, const InferenceProvenance& provenance) {
+  // Check for conflict: overwriting a non-UNKNOWN value with a different value
+  if (truth_value != Tripartite::UNKNOWN && truth_value != valueToSet) {
+    // Record the conflict before overwriting
+    InferenceProvenance oldProv = provenance_.value_or(InferenceProvenance());
+    conflicts_.emplace_back(truth_value, valueToSet, oldProv, provenance);
+  }
+
+  truth_value = valueToSet;
+  provenance_ = provenance;
 }
 void Proposition::setPropositionScope(Quantifier scopeToSet) {
   proposition_scope = scopeToSet;
@@ -135,6 +150,27 @@ Tripartite Proposition::getTruthValue() const {
 }
 Quantifier Proposition::getPropositionScope() const {
   return proposition_scope;
+}
+
+// Inference tracking getters
+const std::optional<InferenceProvenance>& Proposition::getProvenance() const {
+  return provenance_;
+}
+
+bool Proposition::hasProvenance() const {
+  return provenance_.has_value();
+}
+
+const std::vector<Conflict>& Proposition::getConflicts() const {
+  return conflicts_;
+}
+
+bool Proposition::hasConflicts() const {
+  return !conflicts_.empty();
+}
+
+void Proposition::clearConflicts() {
+  conflicts_.clear();
 }
 
 // Operator Overloads //
@@ -192,6 +228,8 @@ Proposition& Proposition::operator=(const Proposition& other) {
     predicate = other.predicate;
     truth_value = other.truth_value;
     proposition_scope = other.proposition_scope;
+    provenance_ = other.provenance_;
+    conflicts_ = other.conflicts_;
   }
   return *this;
 }

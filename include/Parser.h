@@ -1,6 +1,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include "Expression.h"
+#include "Lexer.h"
 #include "Proposition.h"
 #include <string>
 #include <unordered_map>
@@ -45,6 +47,7 @@ using RelationHandler = std::function<bool(
 class Parser {
 private:
     std::unordered_map<std::string, RelationHandler> relationHandlers_;
+    Lexer lexer_;  ///< Lexer for tokenizing input
     
     // Initialize built-in relation handlers
     void registerBuiltinHandlers();
@@ -65,6 +68,27 @@ private:
     static bool handleDiscovered(const std::string& prefix,
                                  const std::vector<std::string>& args,
                                  std::unordered_map<std::string, Proposition>& propositions);
+
+    // ========== Expression Parsing Helpers ==========
+    
+    /// Convert lexer TokenType to LogicalOperator
+    static LogicalOperator tokenTypeToLogicalOperator(TokenType type);
+    
+    /// Build an Expression from a vector of lexer tokens
+    /// @param tokens The tokens to parse (should not include assignment target)
+    /// @param propositions Map to look up proposition truth values
+    /// @param prefix Optional prefix for the resulting expression
+    static Expression buildExpression(const std::vector<LexerToken>& tokens,
+                                      const std::unordered_map<std::string, Proposition>& propositions,
+                                      const std::string& prefix = "");
+    
+    /// Parse a single line from facts file
+    /// @param line The line to parse
+    /// @param propositions Map to update with truth values
+    /// @param expressions Vector to add compound expressions to
+    void parseFactsLine(const std::string& line,
+                        std::unordered_map<std::string, Proposition>& propositions,
+                        std::vector<Expression>& expressions);
 
 public:
     Parser();
@@ -112,12 +136,40 @@ public:
 
     /**
      * Parse a facts file and update truth values of existing propositions.
+     * Now supports full expression syntax including:
+     * - Simple assertions: p (TRUE), !q (FALSE)
+     * - Compound expressions: p && n, a || b
+     * - Assignments: t = p && n
+     * - Parentheses: (a && b) || c
      * 
      * @param filename Path to the facts file
      * @param propositions Existing propositions map to update
      */
     void parseFactsFile(const std::string& filename, 
                         std::unordered_map<std::string, Proposition>& propositions);
+
+    /**
+     * Parse a facts file and return both updated propositions and expressions.
+     * 
+     * @param filename Path to the facts file
+     * @param propositions Existing propositions map to update
+     * @param expressions Vector to populate with parsed expressions
+     */
+    void parseFactsFile(const std::string& filename,
+                        std::unordered_map<std::string, Proposition>& propositions,
+                        std::vector<Expression>& expressions);
+
+    /**
+     * Parse an expression string and return an Expression object.
+     * 
+     * @param exprString The expression string to parse (e.g., "p && q || r")
+     * @param propositions Map to look up proposition truth values
+     * @param prefix Optional prefix for the expression
+     * @return Parsed Expression object
+     */
+    Expression parseExpressionString(const std::string& exprString,
+                                     const std::unordered_map<std::string, Proposition>& propositions,
+                                     const std::string& prefix = "");
 };
 
 #endif // PARSER_H

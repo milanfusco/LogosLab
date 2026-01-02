@@ -1,8 +1,11 @@
 #ifndef PROPOSITION_H
 #define PROPOSITION_H
 
+#include <chrono>
 #include <iostream>
+#include <optional>
 #include <string>
+#include <vector>
 
 /**
  * Enum class to represent logical operators for propositions.
@@ -62,22 +65,71 @@ enum class Quantifier {
 };
 
 /**
+ * InferenceProvenance tracks how a truth value was derived.
+ * Used for explanation generation and debugging inference chains.
+ */
+struct InferenceProvenance {
+  std::string ruleFired;              ///< Name of the inference rule (e.g., "ModusPonens")
+  std::vector<std::string> premises;  ///< Names of propositions used as premises
+  std::chrono::steady_clock::time_point timestamp;  ///< When the inference was made
+  float confidence;                   ///< Confidence score (0.0 to 1.0)
+
+  InferenceProvenance()
+      : ruleFired(""),
+        premises(),
+        timestamp(std::chrono::steady_clock::now()),
+        confidence(1.0f) {}
+
+  InferenceProvenance(const std::string& rule,
+                      const std::vector<std::string>& prem,
+                      float conf = 1.0f)
+      : ruleFired(rule),
+        premises(prem),
+        timestamp(std::chrono::steady_clock::now()),
+        confidence(conf) {}
+};
+
+/**
+ * Conflict records when a truth value is overwritten by a different value.
+ * Tracks the old and new values along with their provenance for diagnostics.
+ */
+struct Conflict {
+  Tripartite oldValue;                ///< The value being overwritten
+  Tripartite newValue;                ///< The new value being set
+  InferenceProvenance oldProvenance;  ///< How the old value was derived
+  InferenceProvenance newProvenance;  ///< How the new value was derived
+  std::chrono::steady_clock::time_point timestamp;  ///< When the conflict occurred
+
+  Conflict(Tripartite oldVal, Tripartite newVal,
+           const InferenceProvenance& oldProv,
+           const InferenceProvenance& newProv)
+      : oldValue(oldVal),
+        newValue(newVal),
+        oldProvenance(oldProv),
+        newProvenance(newProv),
+        timestamp(std::chrono::steady_clock::now()) {}
+};
+
+/**
  * Class to represent a logical proposition with a prefix, relation, antecedent,
  * subject, consequent, predicate, and truth value.
  */
 class Proposition {
  private:
-  std::string prefix;        ///> Symbol or identifier (e.g., "n")
-  LogicalOperator relation;  ///> Type of relation (e.g., IMPLIES, NOT)
-  std::string antecedent;  ///> The antecedent in a relation (e.g., "big-bang")
-  Tripartite antecedentAssertion;  ///> Assertion of the antecedent
-  std::string subject;             ///> Context (e.g., "occurred")
-  std::string
-      consequent;  ///> Consequent in a relation (e.g., "microwave-radiation")
-  Tripartite consequentAssertion;  ///> Assertion of the consequent
-  std::string predicate;           ///> State or outcome (e.g., "present")
-  Tripartite truth_value;          ///> Truth value of the proposition
-  Quantifier proposition_scope;    ///> Scope of the proposition
+  std::string prefix;        ///< Symbol or identifier (e.g., "n")
+  LogicalOperator relation;  ///< Type of relation (e.g., IMPLIES, NOT)
+  std::string antecedent;    ///< The antecedent in a relation (e.g., "big-bang")
+  Tripartite antecedentAssertion;  ///< Assertion of the antecedent
+  std::string subject;             ///< Context (e.g., "occurred")
+  std::string consequent;    ///< Consequent in a relation (e.g., "microwave-radiation")
+  Tripartite consequentAssertion;  ///< Assertion of the consequent
+  std::string predicate;           ///< State or outcome (e.g., "present")
+  Tripartite truth_value;          ///< Truth value of the proposition
+  Quantifier proposition_scope;    ///< Scope of the proposition
+
+  // Inference tracking
+  std::optional<InferenceProvenance> provenance_;  ///< How current truth value was derived
+  std::vector<Conflict> conflicts_;                ///< History of value conflicts
 
  public:
   ///> Default constructor
@@ -99,6 +151,7 @@ class Proposition {
   void setConsequentAssertion(Tripartite assert);
   void setPredicate(const std::string& pred);
   void setTruthValue(Tripartite value);
+  void setTruthValue(Tripartite value, const InferenceProvenance& provenance);
   void setPropositionScope(Quantifier scope);
 
   // Getters
@@ -113,7 +166,14 @@ class Proposition {
   Tripartite getTruthValue() const;
   Quantifier getPropositionScope() const;
 
-  explicit operator bool() const;  ///> Conversion to bool
+  // Inference tracking getters
+  const std::optional<InferenceProvenance>& getProvenance() const;
+  bool hasProvenance() const;
+  const std::vector<Conflict>& getConflicts() const;
+  bool hasConflicts() const;
+  void clearConflicts();
+
+  explicit operator bool() const;  ///< Conversion to bool
 
   bool operator==(
       const Proposition& other) const;  ///> Logical EQUIVALENT operator

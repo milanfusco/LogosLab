@@ -1,0 +1,3 @@
+WetGround, implies(Rain, TRUE, WetGround, TRUE)
+Slippery, implies(WetGround, TRUE, Slippery, TRUE)
+Happy, implies(Sunny, TRUE, Happy, TRUE)
