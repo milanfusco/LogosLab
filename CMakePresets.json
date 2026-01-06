@@ -1,0 +1,167 @@
+{
+    "version": 5,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 14
+    },
+    "configurePresets": [
+        {
+            "name": "base",
+            "hidden": true,
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "ENABLE_PROPERTY_TESTS": "ON",
+                "ENABLE_BENCHMARKS": "ON",
+                "ENABLE_CLANG_TIDY": "OFF",
+                "ENABLE_CPPCHECK": "OFF",
+                "ENABLE_ASAN": "OFF",
+                "ENABLE_UBSAN": "OFF",
+                "ENABLE_TSAN": "OFF",
+                "ENABLE_MSAN": "OFF"
+            }
+        },
+        {
+            "name": "dev-debug",
+            "displayName": "Dev (Debug)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "dev-release",
+            "displayName": "Dev (Release)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "ci-release",
+            "displayName": "CI (Release)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ENABLE_PROPERTY_TESTS": "OFF",
+                "ENABLE_BENCHMARKS": "OFF"
+            }
+        },
+        {
+            "name": "bench-release",
+            "displayName": "Bench (Release, no sanitizers)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release",
+                "ENABLE_PROPERTY_TESTS": "OFF",
+                "ENABLE_ASAN": "OFF",
+                "ENABLE_UBSAN": "OFF",
+                "ENABLE_TSAN": "OFF",
+                "ENABLE_MSAN": "OFF"
+            }
+        },
+        {
+            "name": "asan",
+            "displayName": "ASAN (Debug)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_ASAN": "ON"
+            }
+        },
+        {
+            "name": "ubsan",
+            "displayName": "UBSAN (Debug)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_UBSAN": "ON"
+            }
+        },
+        {
+            "name": "tsan",
+            "displayName": "TSAN (Debug)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_TSAN": "ON"
+            }
+        },
+        {
+            "name": "msan",
+            "displayName": "MSAN (Debug)",
+            "description": "MemorySanitizer requires clang",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "ENABLE_MSAN": "ON"
+            }
+        },
+        {
+            "name": "clang-tidy",
+            "displayName": "Clang-Tidy (Debug)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_CLANG_TIDY": "ON"
+            }
+        },
+        {
+            "name": "cppcheck",
+            "displayName": "Cppcheck (Debug)",
+            "inherits": "base",
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug",
+                "ENABLE_CPPCHECK": "ON"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "dev",
+            "configurePreset": "dev-debug"
+        },
+        {
+            "name": "bench",
+            "configurePreset": "bench-release",
+            "targets": [
+                "benchmarkInference"
+            ]
+        },
+        {
+            "name": "asan",
+            "configurePreset": "asan"
+        },
+        {
+            "name": "ubsan",
+            "configurePreset": "ubsan"
+        },
+        {
+            "name": "tsan",
+            "configurePreset": "tsan"
+        },
+        {
+            "name": "msan",
+            "configurePreset": "msan"
+        },
+        {
+            "name": "clang-tidy",
+            "configurePreset": "clang-tidy"
+        },
+        {
+            "name": "cppcheck",
+            "configurePreset": "cppcheck"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "tests",
+            "configurePreset": "dev-debug",
+            "output": {
+                "outputOnFailure": true
+            }
+        }
+    ]
+}
