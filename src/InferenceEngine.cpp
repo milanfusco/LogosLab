@@ -181,9 +181,10 @@ bool InferenceEngine::applyDisjunctiveSyllogism(const Proposition& disjunction,
         changesMade = true;
     }
     
-    // Re-fetch truth values after Case 1 may have modified the right disjunct
+    // Re-fetch truth values and mutable pointers after Case 1 may have modified the right disjunct
     leftProp = findProposition(leftDisjunct, propositions);
     rightProp = findProposition(rightDisjunct, propositions);
+    leftPropMut = findProposition(leftDisjunct, propositions);  // Re-fetch mutable pointer too
     leftTruth = leftProp ? leftProp->getTruthValue() : Tripartite::UNKNOWN;
     rightTruth = rightProp ? rightProp->getTruthValue() : Tripartite::UNKNOWN;
     
@@ -283,18 +284,32 @@ void InferenceEngine::deduceAll(std::unordered_map<std::string, Proposition>& pr
         // ============================================================
         // PHASE 1: Apply basic inference rules to IMPLIES propositions
         // ============================================================
-        for (auto& entry : propositions) {
-            const Proposition& prop = entry.second;
-            if (prop.getRelation() == LogicalOperator::IMPLIES) {
-                // Apply Modus Ponens: P → Q, P is TRUE ⊢ Q is TRUE
-                if (applyModusPonens(prop, propositions)) {
-                    changesMade = true;
-                }
-                
-                // Apply Modus Tollens: P → Q, Q is FALSE ⊢ P is FALSE
-                if (applyModusTollens(prop, propositions)) {
-                    changesMade = true;
-                }
+        // Collect all IMPLIES proposition keys first to avoid iterator invalidation
+        std::vector<std::string> impliesKeys;
+        for (const auto& entry : propositions) {
+            if (entry.second.getRelation() == LogicalOperator::IMPLIES) {
+                impliesKeys.push_back(entry.first);
+            }
+        }
+        
+        // Now iterate over the collected keys
+        for (const auto& key : impliesKeys) {
+            auto it = propositions.find(key);
+            if (it == propositions.end()) continue;  // Skip if key was removed
+            
+            const Proposition& prop = it->second;
+            // Apply Modus Ponens: P → Q, P is TRUE ⊢ Q is TRUE
+            if (applyModusPonens(prop, propositions)) {
+                changesMade = true;
+            }
+            
+            // Re-fetch after possible insertion
+            it = propositions.find(key);
+            if (it == propositions.end()) continue;
+            
+            // Apply Modus Tollens: P → Q, Q is FALSE ⊢ P is FALSE
+            if (applyModusTollens(it->second, propositions)) {
+                changesMade = true;
             }
         }
         
@@ -302,18 +317,25 @@ void InferenceEngine::deduceAll(std::unordered_map<std::string, Proposition>& pr
         // PHASE 2: Apply Hypothetical Syllogism to pairs of implications
         // P → Q, Q → R ⊢ derives truth through the chain
         // ============================================================
-        std::vector<const Proposition*> implications;
+        // Store keys instead of pointers to avoid dangling pointers after rehashing
+        std::vector<std::string> implicationKeys;
         for (const auto& entry : propositions) {
             if (entry.second.getRelation() == LogicalOperator::IMPLIES) {
-                implications.push_back(&entry.second);
+                implicationKeys.push_back(entry.first);
             }
         }
         
-        for (size_t i = 0; i < implications.size(); ++i) {
-            for (size_t j = 0; j < implications.size(); ++j) {
+        for (size_t i = 0; i < implicationKeys.size(); ++i) {
+            for (size_t j = 0; j < implicationKeys.size(); ++j) {
                 if (i != j) {
-                    if (applyHypotheticalSyllogism(*implications[i], *implications[j], propositions)) {
-                        changesMade = true;
+                    // Fetch propositions by key each time to ensure valid references
+                    auto it_i = propositions.find(implicationKeys[i]);
+                    auto it_j = propositions.find(implicationKeys[j]);
+                    
+                    if (it_i != propositions.end() && it_j != propositions.end()) {
+                        if (applyHypotheticalSyllogism(it_i->second, it_j->second, propositions)) {
+                            changesMade = true;
+                        }
                     }
                 }
             }
@@ -323,12 +345,21 @@ void InferenceEngine::deduceAll(std::unordered_map<std::string, Proposition>& pr
         // PHASE 3: Apply Disjunctive Syllogism to OR propositions
         // P ∨ Q, ¬P ⊢ Q
         // ============================================================
-        for (auto& entry : propositions) {
-            const Proposition& prop = entry.second;
-            if (prop.getRelation() == LogicalOperator::OR) {
-                if (applyDisjunctiveSyllogism(prop, propositions)) {
-                    changesMade = true;
-                }
+        // Collect all OR proposition keys first to avoid iterator invalidation
+        std::vector<std::string> orKeys;
+        for (const auto& entry : propositions) {
+            if (entry.second.getRelation() == LogicalOperator::OR) {
+                orKeys.push_back(entry.first);
+            }
+        }
+        
+        // Now iterate over the collected keys
+        for (const auto& key : orKeys) {
+            auto it = propositions.find(key);
+            if (it == propositions.end()) continue;  // Skip if key was removed
+            
+            if (applyDisjunctiveSyllogism(it->second, propositions)) {
+                changesMade = true;
             }
         }
         
@@ -336,17 +367,24 @@ void InferenceEngine::deduceAll(std::unordered_map<std::string, Proposition>& pr
         // PHASE 4: Apply Resolution to pairs of OR propositions
         // P ∨ Q, ¬P ∨ R ⊢ Q ∨ R
         // ============================================================
-        std::vector<const Proposition*> disjunctions;
+        // Store keys instead of pointers to avoid dangling pointers after rehashing
+        std::vector<std::string> disjunctionKeys;
         for (const auto& entry : propositions) {
             if (entry.second.getRelation() == LogicalOperator::OR) {
-                disjunctions.push_back(&entry.second);
+                disjunctionKeys.push_back(entry.first);
             }
         }
         
-        for (size_t i = 0; i < disjunctions.size(); ++i) {
-            for (size_t j = i + 1; j < disjunctions.size(); ++j) {
-                if (applyResolution(*disjunctions[i], *disjunctions[j], propositions)) {
-                    changesMade = true;
+        for (size_t i = 0; i < disjunctionKeys.size(); ++i) {
+            for (size_t j = i + 1; j < disjunctionKeys.size(); ++j) {
+                // Fetch propositions by key each time to ensure valid references
+                auto it_i = propositions.find(disjunctionKeys[i]);
+                auto it_j = propositions.find(disjunctionKeys[j]);
+                
+                if (it_i != propositions.end() && it_j != propositions.end()) {
+                    if (applyResolution(it_i->second, it_j->second, propositions)) {
+                        changesMade = true;
+                    }
                 }
             }
         }

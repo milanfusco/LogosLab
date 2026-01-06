@@ -273,20 +273,26 @@ void Parser::parseFactsLine(const std::string& line,
                 return;
             }
             
-            // For compound expressions without assignment, set all identifiers to TRUE
-            // and also build an expression for potential evaluation
-            // (This preserves backward compatibility with the old behavior)
+            // For compound expressions without assignment, set identifiers based on whether
+            // they are negated, and build an expression for potential evaluation
             bool hasOperators = false;
-            for (const auto& token : tokens) {
+            for (size_t i = 0; i < tokens.size(); ++i) {
+                const auto& token = tokens[i];
+                
                 if (token.type == TokenType::AND || token.type == TokenType::OR ||
                     token.type == TokenType::IMPLIES) {
                     hasOperators = true;
                 }
                 
                 if (token.type == TokenType::IDENTIFIER) {
-                    // Check for preceding NOT
-                    // (already handled above for simple !id case)
-                    propositions[token.value].setTruthValue(Tripartite::TRUE);
+                    // Check for preceding NOT operator
+                    bool isNegated = (i > 0 && tokens[i - 1].type == TokenType::NOT);
+                    
+                    if (isNegated) {
+                        propositions[token.value].setTruthValue(Tripartite::FALSE);
+                    } else {
+                        propositions[token.value].setTruthValue(Tripartite::TRUE);
+                    }
                 }
             }
             
@@ -334,4 +340,3 @@ Expression Parser::parseExpressionString(const std::string& exprString,
         return Expression();  // Return empty expression on error
     }
 }
-

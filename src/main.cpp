@@ -37,7 +37,7 @@ namespace {
 int main(int argc, char* argv[]) {
     ResultFilter filter;
     bool verbose = false;
-    int fileArgStart = 1;
+    int fileArgStart = -1;  // Initialize to -1 to indicate no file arguments found yet
     
     // Parse options
     for (int i = 1; i < argc; ++i) {
@@ -102,7 +102,7 @@ int main(int argc, char* argv[]) {
     }
     
     // Check for required file arguments
-    if (argc - fileArgStart < 2) {
+    if (fileArgStart == -1 || argc - fileArgStart < 2) {
         std::cerr << "Error: Missing required file arguments.\n\n";
         printUsage(argv[0]);
         return 1;
