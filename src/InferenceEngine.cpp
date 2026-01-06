@@ -130,6 +130,10 @@ bool InferenceEngine::applyHypotheticalSyllogism(const Proposition& impl1,
         changesMade = true;
     }
     
+    // Re-fetch R's truth value after forward chaining may have modified it
+    rProp = findProposition(R, propositions);
+    rTruth = rProp ? rProp->getTruthValue() : Tripartite::UNKNOWN;
+    
     // Backward chaining: If R is FALSE, then P is FALSE
     Proposition* pPropMut = findProposition(P, propositions);
     if (rTruth == Tripartite::FALSE && pTruth != Tripartite::FALSE) {
@@ -176,6 +180,12 @@ bool InferenceEngine::applyDisjunctiveSyllogism(const Proposition& disjunction,
         }
         changesMade = true;
     }
+    
+    // Re-fetch truth values after Case 1 may have modified the right disjunct
+    leftProp = findProposition(leftDisjunct, propositions);
+    rightProp = findProposition(rightDisjunct, propositions);
+    leftTruth = leftProp ? leftProp->getTruthValue() : Tripartite::UNKNOWN;
+    rightTruth = rightProp ? rightProp->getTruthValue() : Tripartite::UNKNOWN;
     
     // Case 2: P ∨ Q, ¬Q ⊢ P
     // If right disjunct is FALSE, left disjunct must be TRUE
@@ -393,4 +403,3 @@ void InferenceEngine::deduceAll(std::unordered_map<std::string, Proposition>& pr
         }
     } while (changesMade);
 }
-
