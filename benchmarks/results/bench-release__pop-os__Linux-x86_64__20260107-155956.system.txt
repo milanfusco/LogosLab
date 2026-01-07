@@ -1,0 +1,7 @@
+timestamp: 2026-01-07T16:00:07-05:00
+preset: bench-release
+build_dir: /home/milan/dev/LogosLab/build/bench-release
+git_sha: a18a7689d6ee4a87d7a0d4083f4a9f971b104fbc
+git_dirty: no
+cmake: cmake version 3.28.3
+uname: Linux pop-os 6.17.9-76061709-generic #202511241048~1764607909~24.04~df6b2b6 SMP PREEMPT_DYNAMIC Mon D x86_64 x86_64 x86_64 GNU/Linux
