@@ -1,7 +1,7 @@
-timestamp: 2026-01-06T14:23:21-05:00
+timestamp: 2026-01-07T19:29:29-05:00
 preset: bench-release
 build_dir: /Users/milanfusco/Documents/Development/Repositories/LogosLab/build/bench-release
-git_sha: 4c72168ee829d419555ec032f5b6d6a304c2ac98
-git_dirty: yes
+git_sha: a18a7689d6ee4a87d7a0d4083f4a9f971b104fbc
+git_dirty: no
 cmake: cmake version 4.2.1
 uname: Darwin Milans-MacBook-Pro.local 25.1.0 Darwin Kernel Version 25.1.0: Mon Oct 20 19:32:41 PDT 2025; root:xnu-12377.41.6~2/RELEASE_ARM64_T6000 arm64
