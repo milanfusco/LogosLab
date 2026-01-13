@@ -1,0 +1,122 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-22.04
+    outputs:
+      upload_url: ${{ steps.create_release.outputs.upload_url }}
+      version: ${{ steps.get_version.outputs.version }}
+    
+    steps:
+    - name: Get version from tag
+      id: get_version
+      run: echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+    
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ github.ref }}
+        release_name: LogosLab ${{ steps.get_version.outputs.version }}
+        draft: false
+        prerelease: false
+        body: |
+          ## LogosLab ${{ steps.get_version.outputs.version }}
+          
+          Automated release from tag ${{ steps.get_version.outputs.version }}
+          
+          ### Downloads
+          - Linux (x86_64): `logoslab-${{ steps.get_version.outputs.version }}-linux-x86_64.tar.gz`
+          - macOS (ARM64): `logoslab-${{ steps.get_version.outputs.version }}-macos-arm64.tar.gz`
+          
+          ### Installation
+          ```bash
+          tar -xzf logoslab-*.tar.gz
+          cd logoslab-*/
+          ./main
+          ```
+
+  build-and-upload:
+    name: Build & Upload (${{ matrix.os }})
+    needs: create-release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux
+            arch: x86_64
+          - os: macos-14
+            platform: macos
+            arch: arm64
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake
+    
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install ninja cmake
+    
+    - name: Configure CMake
+      run: cmake --preset dev-release
+    
+    - name: Build
+      run: cmake --build build/dev-release --parallel
+    
+    - name: Prepare release package
+      run: |
+        VERSION=${{ needs.create-release.outputs.version }}
+        PACKAGE_NAME="logoslab-${VERSION}-${{ matrix.platform }}-${{ matrix.arch }}"
+        PACKAGE_DIR="${PACKAGE_NAME}"
+        
+        mkdir -p "${PACKAGE_DIR}/bin"
+        mkdir -p "${PACKAGE_DIR}/lib"
+        mkdir -p "${PACKAGE_DIR}/include"
+        
+        # Copy executable
+        cp build/dev-release/main "${PACKAGE_DIR}/bin/"
+        
+        # Copy library
+        cp build/dev-release/libLogosLabLib.a "${PACKAGE_DIR}/lib/"
+        
+        # Copy headers
+        cp -r include/* "${PACKAGE_DIR}/include/"
+        
+        # Copy documentation
+        cp README.md LICENSE "${PACKAGE_DIR}/"
+        
+        # Create tarball
+        tar -czf "${PACKAGE_NAME}.tar.gz" "${PACKAGE_DIR}"
+        
+        echo "PACKAGE_NAME=${PACKAGE_NAME}" >> $GITHUB_ENV
+    
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ needs.create-release.outputs.upload_url }}
+        asset_path: ./${{ env.PACKAGE_NAME }}.tar.gz
+        asset_name: ${{ env.PACKAGE_NAME }}.tar.gz
+        asset_content_type: application/gzip
+

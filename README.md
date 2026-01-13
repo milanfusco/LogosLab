@@ -1,5 +1,9 @@
 # LogosLab
 
+[![CI](https://github.com/milanfusco/LogosLab/actions/workflows/ci.yml/badge.svg)](https://github.com/milanfusco/LogosLab/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/milanfusco/LogosLab)
+
 **LogosLab** is a powerful logical reasoning framework designed for automated deduction, symbolic logic evaluation, and knowledge base inference. It implements a complete reasoning engine with three-valued logic (TRUE, FALSE, UNKNOWN), multiple inference rules, and an extensible architecture for building intelligent systems.
 
 ## Features
