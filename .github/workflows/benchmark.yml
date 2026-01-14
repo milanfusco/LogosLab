@@ -11,59 +11,77 @@ on:
         description: 'Minimum benchmark time per test'
         required: false
         default: '0.01'
+      compare_baseline:
+        description: 'Compare against baseline (main branch)'
+        required: false
+        type: boolean
+        default: false
+
+concurrency:
+  group: benchmark-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   benchmark:
     name: Run Benchmarks
     runs-on: ubuntu-22.04
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake
-    
-    - name: Cache CMake build
-      uses: actions/cache@v5
-      with:
-        path: |
-          build/bench-release
-          ~/.cache/FetchContent
-        key: ubuntu-bench-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
-        restore-keys: |
-          ubuntu-bench-
-    
-    - name: Make bench.sh executable
-      run: chmod +x bench.sh
-    
-    - name: Run benchmarks
-      run: |
-        if [ -n "${{ github.event.inputs.filter }}" ]; then
-          ./bench.sh --preset bench-release --filter "${{ github.event.inputs.filter }}" --min-time "${{ github.event.inputs.min_time }}"
-        else
-          ./bench.sh --preset bench-release --min-time "${{ github.event.inputs.min_time }}"
-        fi
-    
-    - name: Upload benchmark results
-      uses: actions/upload-artifact@v6
-      with:
-        name: benchmark-results
-        path: |
-          benchmarks/results/*.json
-          benchmarks/results/*.txt
-        retention-days: 30
-    
-    - name: Display benchmark summary
-      if: always()
-      run: |
-        echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
-        echo "" >> $GITHUB_STEP_SUMMARY
-        if ls benchmarks/results/*.json >/dev/null 2>&1; then
-          echo "Benchmark completed successfully. Results uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
-        else
-          echo "No benchmark results found." >> $GITHUB_STEP_SUMMARY
-        fi
 
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0  # Need history for baseline comparison
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ubuntu-bench
+          evict-old-files: 1d
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake
+
+      - name: Configure
+        run: |
+          cmake --preset bench-release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build build/bench-release --parallel
+
+      - name: Run benchmarks
+        run: |
+          chmod +x bench.sh
+          ARGS="--preset bench-release --min-time ${{ github.event.inputs.min_time }}"
+          if [ -n "${{ github.event.inputs.filter }}" ]; then
+            ARGS="$ARGS --filter ${{ github.event.inputs.filter }}"
+          fi
+          ./bench.sh $ARGS
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v6
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: |
+            benchmarks/results/*.json
+            benchmarks/results/*.txt
+          retention-days: 30
+
+      - name: Display benchmark summary
+        if: always()
+        run: |
+          echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if ls benchmarks/results/*.json >/dev/null 2>&1; then
+            echo "Benchmark completed successfully." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Results Preview" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            head -50 benchmarks/results/*.txt >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ No benchmark results found." >> $GITHUB_STEP_SUMMARY
+          fi
