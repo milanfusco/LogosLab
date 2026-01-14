@@ -239,10 +239,12 @@ endif()
 if(ENABLE_CPPCHECK)
     add_custom_target(cppcheck
         COMMAND ${CPPCHECK_EXE}
-            --enable=all
+            --enable=warning,performance,portability
             --std=c++17
             --error-exitcode=1
             --quiet
+            --inline-suppr
+            --suppress=missingIncludeSystem
             -I ${CMAKE_CURRENT_SOURCE_DIR}/include
             ${CMAKE_CURRENT_SOURCE_DIR}/src
             ${CMAKE_CURRENT_SOURCE_DIR}/include

@@ -1,0 +1,208 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CMAKE_BUILD_PARALLEL_LEVEL: 4
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-14]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Install dependencies (Ubuntu)
+      if: runner.os == 'Linux'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake
+    
+    - name: Install dependencies (macOS)
+      if: runner.os == 'macOS'
+      run: |
+        brew install ninja cmake
+    
+    - name: Cache CMake build
+      uses: actions/cache@v5
+      with:
+        path: |
+          build/ci-release
+          ~/.cache/FetchContent
+        key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
+        restore-keys: |
+          ${{ runner.os }}-cmake-
+    
+    - name: Configure CMake
+      run: cmake --preset ci-release
+    
+    - name: Build
+      run: cmake --build build/ci-release --parallel
+    
+    - name: Run tests
+      run: ctest --test-dir build/ci-release --output-on-failure
+
+  sanitizer-asan:
+    name: AddressSanitizer
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake
+    
+    - name: Cache CMake build
+      uses: actions/cache@v5
+      with:
+        path: |
+          build/asan
+          ~/.cache/FetchContent
+        key: ubuntu-asan-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
+        restore-keys: |
+          ubuntu-asan-
+    
+    - name: Configure CMake
+      run: cmake --preset asan
+    
+    - name: Build
+      run: cmake --build build/asan --parallel
+    
+    - name: Run tests with ASAN
+      run: ctest --test-dir build/asan --output-on-failure
+
+  sanitizer-ubsan:
+    name: UndefinedBehaviorSanitizer
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake
+    
+    - name: Cache CMake build
+      uses: actions/cache@v5
+      with:
+        path: |
+          build/ubsan
+          ~/.cache/FetchContent
+        key: ubuntu-ubsan-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
+        restore-keys: |
+          ubuntu-ubsan-
+    
+    - name: Configure CMake
+      run: cmake --preset ubsan
+    
+    - name: Build
+      run: cmake --build build/ubsan --parallel
+    
+    - name: Run tests with UBSAN
+      run: ctest --test-dir build/ubsan --output-on-failure
+
+  sanitizer-tsan:
+    name: ThreadSanitizer
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake
+    
+    - name: Cache CMake build
+      uses: actions/cache@v5
+      with:
+        path: |
+          build/tsan
+          ~/.cache/FetchContent
+        key: ubuntu-tsan-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
+        restore-keys: |
+          ubuntu-tsan-
+    
+    - name: Configure CMake
+      run: cmake --preset tsan
+    
+    - name: Build
+      run: cmake --build build/tsan --parallel
+    
+    - name: Run tests with TSAN
+      run: ctest --test-dir build/tsan --output-on-failure
+
+  static-analysis-clang-tidy:
+    name: clang-tidy
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake clang-tidy
+    
+    - name: Cache CMake build
+      uses: actions/cache@v5
+      with:
+        path: |
+          build/clang-tidy
+          ~/.cache/FetchContent
+        key: ubuntu-clang-tidy-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json', '.clang-tidy') }}
+        restore-keys: |
+          ubuntu-clang-tidy-
+    
+    - name: Configure CMake
+      run: cmake --preset clang-tidy
+    
+    - name: Build with clang-tidy
+      run: cmake --build build/clang-tidy --parallel
+
+  static-analysis-cppcheck:
+    name: cppcheck
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake cppcheck
+    
+    - name: Cache CMake build
+      uses: actions/cache@v5
+      with:
+        path: |
+          build/cppcheck
+          ~/.cache/FetchContent
+        key: ubuntu-cppcheck-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
+        restore-keys: |
+          ubuntu-cppcheck-
+    
+    - name: Configure CMake
+      run: cmake --preset cppcheck
+    
+    - name: Run cppcheck
+      run: cmake --build build/cppcheck --target cppcheck
+

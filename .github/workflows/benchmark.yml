@@ -1,0 +1,69 @@
+name: Benchmark
+
+on:
+  workflow_dispatch:
+    inputs:
+      filter:
+        description: 'Benchmark filter regex (optional)'
+        required: false
+        default: ''
+      min_time:
+        description: 'Minimum benchmark time per test'
+        required: false
+        default: '0.01'
+
+jobs:
+  benchmark:
+    name: Run Benchmarks
+    runs-on: ubuntu-22.04
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v6
+    
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake
+    
+    - name: Cache CMake build
+      uses: actions/cache@v5
+      with:
+        path: |
+          build/bench-release
+          ~/.cache/FetchContent
+        key: ubuntu-bench-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
+        restore-keys: |
+          ubuntu-bench-
+    
+    - name: Make bench.sh executable
+      run: chmod +x bench.sh
+    
+    - name: Run benchmarks
+      run: |
+        if [ -n "${{ github.event.inputs.filter }}" ]; then
+          ./bench.sh --preset bench-release --filter "${{ github.event.inputs.filter }}" --min-time "${{ github.event.inputs.min_time }}"
+        else
+          ./bench.sh --preset bench-release --min-time "${{ github.event.inputs.min_time }}"
+        fi
+    
+    - name: Upload benchmark results
+      uses: actions/upload-artifact@v6
+      with:
+        name: benchmark-results
+        path: |
+          benchmarks/results/*.json
+          benchmarks/results/*.txt
+        retention-days: 30
+    
+    - name: Display benchmark summary
+      if: always()
+      run: |
+        echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        if [ -f benchmarks/results/*.json ]; then
+          echo "Benchmark completed successfully. Results uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
+        else
+          echo "No benchmark results found." >> $GITHUB_STEP_SUMMARY
+        fi
+
