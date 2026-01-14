@@ -2,14 +2,52 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
+    paths:
+      - '.github/workflows/ci.yml'
+      - '**/CMakeLists.txt'
+      - 'CMakePresets.json'
+      - '**/*.h'
+      - '**/*.hpp'
+      - '**/*.c'
+      - '**/*.cpp'
+      - '**/*.in'
+      - '**/*.cmake'
   pull_request:
-    branches: [ main ]
+    branches: [main]
+    paths:
+      - '.github/workflows/ci.yml'
+      - '**/CMakeLists.txt'
+      - 'CMakePresets.json'
+      - '**/*.h'
+      - '**/*.hpp'
+      - '**/*.c'
+      - '**/*.cpp'
+      - '**/*.in'
+      - '**/*.cmake'
+  workflow_dispatch:
+    inputs:
+      run_type:
+        description: 'CI scope'
+        required: true
+        default: 'standard'
+        type: choice
+        options:
+          - standard
+          - full
+          - sanitizers-only
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
 
 env:
   CMAKE_BUILD_PARALLEL_LEVEL: 4
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # Build & Test - Native runners
+  # ---------------------------------------------------------------------------
   build-and-test:
     name: Build & Test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -17,192 +55,186 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-22.04, macos-14]
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-    
-    - name: Install dependencies (Ubuntu)
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake
-    
-    - name: Install dependencies (macOS)
-      if: runner.os == 'macOS'
-      run: |
-        brew install ninja cmake
-    
-    - name: Cache CMake build
-      uses: actions/cache@v5
-      with:
-        path: |
-          build/ci-release
-          ~/.cache/FetchContent
-        key: ${{ runner.os }}-cmake-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
-        restore-keys: |
-          ${{ runner.os }}-cmake-
-    
-    - name: Configure CMake
-      run: cmake --preset ci-release
-    
-    - name: Build
-      run: cmake --build build/ci-release --parallel
-    
-    - name: Run tests
-      run: ctest --test-dir build/ci-release --output-on-failure
 
-  sanitizer-asan:
-    name: AddressSanitizer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ${{ matrix.os }}-build
+          evict-old-files: 1d
+
+      - name: Install dependencies (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja cmake
+
+      - name: Configure
+        run: |
+          cmake --preset ci-release \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build build/ci-release --parallel
+
+      - name: Test
+        run: ctest --test-dir build/ci-release --output-on-failure
+
+  # ---------------------------------------------------------------------------
+  # Cross-architecture builds via QEMU
+  # ---------------------------------------------------------------------------
+  build-cross-arch:
+    name: Build (${{ matrix.arch }})
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.run_type == 'full'
     runs-on: ubuntu-22.04
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake
-    
-    - name: Cache CMake build
-      uses: actions/cache@v5
-      with:
-        path: |
-          build/asan
-          ~/.cache/FetchContent
-        key: ubuntu-asan-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
-        restore-keys: |
-          ubuntu-asan-
-    
-    - name: Configure CMake
-      run: cmake --preset asan
-    
-    - name: Build
-      run: cmake --build build/asan --parallel
-    
-    - name: Run tests with ASAN
-      run: ctest --test-dir build/asan --output-on-failure
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: linux/arm64
+            cmake_flags: -DGGML_NATIVE=OFF
+          - arch: linux/arm/v7
+            cmake_flags: -DGGML_NATIVE=OFF
 
-  sanitizer-ubsan:
-    name: UndefinedBehaviorSanitizer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Build ${{ matrix.arch }}
+        run: |
+          docker run --platform ${{ matrix.arch }} --rm \
+            -v ${{ github.workspace }}:/workspace \
+            -w /workspace ubuntu:22.04 /bin/sh -c '
+            set -e
+            export DEBIAN_FRONTEND=noninteractive
+            apt-get update
+            apt-get install -y build-essential cmake ninja-build git
+            cmake -B build -G Ninja \
+              -DCMAKE_BUILD_TYPE=Release \
+              ${{ matrix.cmake_flags }}
+            cmake --build build --parallel $(nproc)
+            ctest --test-dir build --output-on-failure'
+
+  # ---------------------------------------------------------------------------
+  # Sanitizers
+  # ---------------------------------------------------------------------------
+  sanitizers:
+    name: ${{ matrix.sanitizer }}
+    if: |
+      github.event_name != 'workflow_dispatch' ||
+      github.event.inputs.run_type == 'full' ||
+      github.event.inputs.run_type == 'sanitizers-only'
     runs-on: ubuntu-22.04
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake
-    
-    - name: Cache CMake build
-      uses: actions/cache@v5
-      with:
-        path: |
-          build/ubsan
-          ~/.cache/FetchContent
-        key: ubuntu-ubsan-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
-        restore-keys: |
-          ubuntu-ubsan-
-    
-    - name: Configure CMake
-      run: cmake --preset ubsan
-    
-    - name: Build
-      run: cmake --build build/ubsan --parallel
-    
-    - name: Run tests with UBSAN
-      run: ctest --test-dir build/ubsan --output-on-failure
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - sanitizer: AddressSanitizer
+            preset: asan
+          - sanitizer: UndefinedBehaviorSanitizer
+            preset: ubsan
+          - sanitizer: ThreadSanitizer
+            preset: tsan
 
-  sanitizer-tsan:
-    name: ThreadSanitizer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: ubuntu-${{ matrix.preset }}
+          evict-old-files: 1d
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake
+
+      - name: Configure
+        run: |
+          cmake --preset ${{ matrix.preset }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build build/${{ matrix.preset }} --parallel
+
+      - name: Test
+        run: ctest --test-dir build/${{ matrix.preset }} --output-on-failure
+
+  # ---------------------------------------------------------------------------
+  # Static Analysis
+  # ---------------------------------------------------------------------------
+  static-analysis:
+    name: ${{ matrix.tool }}
     runs-on: ubuntu-22.04
-    
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake
-    
-    - name: Cache CMake build
-      uses: actions/cache@v5
-      with:
-        path: |
-          build/tsan
-          ~/.cache/FetchContent
-        key: ubuntu-tsan-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
-        restore-keys: |
-          ubuntu-tsan-
-    
-    - name: Configure CMake
-      run: cmake --preset tsan
-    
-    - name: Build
-      run: cmake --build build/tsan --parallel
-    
-    - name: Run tests with TSAN
-      run: ctest --test-dir build/tsan --output-on-failure
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - tool: clang-tidy
+            preset: clang-tidy
+            packages: clang-tidy
+            build_target: ""
+          - tool: cppcheck
+            preset: cppcheck
+            packages: cppcheck
+            build_target: cppcheck
 
-  static-analysis-clang-tidy:
-    name: clang-tidy
-    runs-on: ubuntu-22.04
-    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake clang-tidy
-    
-    - name: Cache CMake build
-      uses: actions/cache@v5
-      with:
-        path: |
-          build/clang-tidy
-          ~/.cache/FetchContent
-        key: ubuntu-clang-tidy-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json', '.clang-tidy') }}
-        restore-keys: |
-          ubuntu-clang-tidy-
-    
-    - name: Configure CMake
-      run: cmake --preset clang-tidy
-    
-    - name: Build with clang-tidy
-      run: cmake --build build/clang-tidy --parallel
+      - name: Checkout
+        uses: actions/checkout@v6
 
-  static-analysis-cppcheck:
-    name: cppcheck
-    runs-on: ubuntu-22.04
-    
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build cmake ${{ matrix.packages }}
+
+      - name: Configure
+        run: cmake --preset ${{ matrix.tool }}
+
+      - name: Run ${{ matrix.tool }}
+        run: |
+          if [ -n "${{ matrix.build_target }}" ]; then
+            cmake --build build/${{ matrix.preset }} --target ${{ matrix.build_target }}
+          else
+            cmake --build build/${{ matrix.preset }} --parallel
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Windows Build
+  # ---------------------------------------------------------------------------
+  windows:
+    name: Windows (${{ matrix.arch }})
+    if: github.event_name != 'workflow_dispatch' || github.event.inputs.run_type == 'full'
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [x64]
+        build: [Release]
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v6
-    
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y ninja-build cmake cppcheck
-    
-    - name: Cache CMake build
-      uses: actions/cache@v5
-      with:
-        path: |
-          build/cppcheck
-          ~/.cache/FetchContent
-        key: ubuntu-cppcheck-${{ hashFiles('**/CMakeLists.txt', 'CMakePresets.json') }}
-        restore-keys: |
-          ubuntu-cppcheck-
-    
-    - name: Configure CMake
-      run: cmake --preset cppcheck
-    
-    - name: Run cppcheck
-      run: cmake --build build/cppcheck --target cppcheck
+      - name: Checkout
+        uses: actions/checkout@v6
 
+      - name: Configure
+        run: cmake -S . -B build -A ${{ matrix.arch }} -DCMAKE_BUILD_TYPE=${{ matrix.build }}
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build }} --parallel
+
+      - name: Test
+        run: ctest --test-dir build -C ${{ matrix.build }} --output-on-failure
