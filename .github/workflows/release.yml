@@ -4,6 +4,8 @@ on:
   push:
     tags:
       - 'v*.*.*'
+  release:
+    types: [published]  # Triggers when publishing a draft from release-drafter
   workflow_dispatch:
     inputs:
       create_release:
@@ -50,25 +52,36 @@ jobs:
           SHOULD_RELEASE="false"
           IS_PRERELEASE="false"
 
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+          # Triggered by publishing a release (from release-drafter)
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG_NAME="${{ github.event.release.tag_name }}"
+            SHOULD_RELEASE="true"
+            if [[ "${{ github.event.release.prerelease }}" == "true" ]]; then
+              IS_PRERELEASE="true"
+            fi
+          # Triggered by pushing a tag
+          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
             TAG_NAME="${{ github.ref_name }}"
             SHOULD_RELEASE="true"
-            # Check if it's a pre-release tag (contains rc, alpha, beta)
             if [[ "$TAG_NAME" =~ (rc|alpha|beta) ]]; then
               IS_PRERELEASE="true"
             fi
+          # Manual trigger with custom pre-release tag
           elif [[ -n "$CUSTOM_TAG" ]]; then
             TAG_NAME="v0.0.0-${CUSTOM_TAG}"
             SHOULD_RELEASE="true"
             IS_PRERELEASE="true"
+          # Manual trigger to create release
           elif [[ "${{ github.event.inputs.create_release }}" == "true" ]]; then
             TAG_NAME="b${BUILD_NUMBER}"
             SHOULD_RELEASE="true"
+          # Manual trigger without release (just build)
           else
             TAG_NAME="dev-b${BUILD_NUMBER}-${SHORT_HASH}"
             SHOULD_RELEASE="false"
           fi
 
+          echo "Event: ${{ github.event_name }}"
           echo "Tag: $TAG_NAME, Release: $SHOULD_RELEASE, Pre-release: $IS_PRERELEASE"
           echo "name=$TAG_NAME" >> $GITHUB_OUTPUT
           echo "should_release=$SHOULD_RELEASE" >> $GITHUB_OUTPUT
@@ -159,10 +172,10 @@ jobs:
           retention-days: 7
 
   # ---------------------------------------------------------------------------
-  # Create GitHub Release
+  # Upload assets to GitHub Release
   # ---------------------------------------------------------------------------
-  create-release:
-    name: Create Release
+  upload-release-assets:
+    name: Upload Release Assets
     needs: [determine-tag, build-artifacts]
     if: needs.determine-tag.outputs.should_release == 'true'
     runs-on: ubuntu-latest
@@ -181,7 +194,17 @@ jobs:
       - name: List artifacts
         run: ls -R artifacts
 
-      - name: Create release
+      - name: Upload assets to existing release (from release-drafter)
+        if: github.event_name == 'release'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.determine-tag.outputs.tag_name }}
+        run: |
+          # Upload binaries to the existing release
+          gh release upload "${VERSION}" artifacts/*/*.tar.gz --clobber
+
+      - name: Create new release (from tag push or manual)
+        if: github.event_name != 'release'
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.determine-tag.outputs.tag_name }}
