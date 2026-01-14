@@ -61,7 +61,7 @@ jobs:
       run: |
         echo "## Benchmark Results" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        if [ -f benchmarks/results/*.json ]; then
+        if ls benchmarks/results/*.json >/dev/null 2>&1; then
           echo "Benchmark completed successfully. Results uploaded as artifacts." >> $GITHUB_STEP_SUMMARY
         else
           echo "No benchmark results found." >> $GITHUB_STEP_SUMMARY
